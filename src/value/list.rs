@@ -51,6 +51,12 @@ impl List {
         }
     }
 
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            list: InnerList::with_capacity(capacity)
+        }
+    }
+
     tokay_method!("list(*args)", {
         let list = if args.len() == 1 {
             List::from(args[0].clone())

@@ -156,16 +156,21 @@ Literal : @{
     T_Integer
 }
 
-CollectionItem : @{
+List : @{
+    Expression (',' _ Expression)+
+    Expression ',' _
+}
+
+EmbeddedSequenceItem : @{
     T_Alias _ '=>' _ expect Expression  ast("alias")
     Expression '=>' _ expect Expression  ast("alias")
     Expression
 }
 
-Collection : @{
+EmbeddedSequence : @{
     '(' _ (T_EOL _)* ')'  ast("value_void", null)
-    '(' _ (T_EOL _)* (Expression (',' _)? (T_EOL _)*)+ ')'  ast("sequence")
-    '(' _ (T_EOL _)* (CollectionItem (',' _)? (T_EOL _)*)+ expect ')'  ast("sequence")
+    '(' _ List ')' _  ast("list")  # no expect here, is handled below!
+    '(' _ (T_EOL _)* (EmbeddedSequenceItem (',' _) (T_EOL _)*)+ expect ')'  ast("sequence")
 }
 
 TokenLiteral : @{
@@ -180,7 +185,7 @@ TokenCall : @{
     T_Consumable '(' _ (T_EOL _)* CallParameters? (T_EOL _)* expect ')'  ast("call")
     T_Consumable  ast("call")
     Parselet
-    Collection
+    EmbeddedSequence
     Block
 }
 
@@ -253,7 +258,7 @@ LogicalOr : @{
     LogicalAnd
 }
 
-Expression : @{
+Assignment : @{
     Lvalue _ '=' not {
         '>'
         '='
@@ -264,6 +269,8 @@ Expression : @{
     Lvalue _ '/=' _ expect Expression  ast("assign_div_hold")
     LogicalOr
 }
+
+Expression : Assignment
 
 StatementOrEmpty : @{
     Statement

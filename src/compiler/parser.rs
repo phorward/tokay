@@ -213,20 +213,38 @@ impl Parser {
             T_Integer
         }),
 
-        // Collections (are at least embedded sequences)
+        // EmbeddedSequence
+        (List = {
+            [
+                Expression, (pos [",", _, Expression]), (opt [",", _]),
+                (call ast[(value "list"),
+                    (call list_add[
+                        (Op::LoadFastCapture(1)),
+                        (Op::LoadFastCapture(2))
+                    ])
+                ])
+            ],
+            [
+                Expression, ",", _,
+                (call ast[(value "list")])
+            ]
+        }),
 
-        (CollectionItem = {
+        (EmbeddedSequenceItem = {
             [T_Alias, _, "=>", _, (expect Expression), (call ast[(value "alias")])],
             [Expression, "=>", _, (expect Expression), (call ast[(value "alias")])],
+            List,
             Expression
         }),
 
-        (Collection = {
+        (EmbeddedSequence = {
             ["(", _, (kle [T_EOL, _]), ")", (call ast[(value "value_void")])],
-            ["(", _, (kle [T_EOL, _]), (expect (pos [Expression, (opt [",", _]), (kle [T_EOL, _])])), ")", // no expect ")" here!
-                (call ast[(value "sequence")])],
-            ["(", _, (kle [T_EOL, _]), (pos [CollectionItem, (opt [",", _]), (kle [T_EOL, _])]), (expect ")"),
-                (call ast[(value "sequence")])]
+            [
+                "(", _, (kle [T_EOL, _]),
+                (pos [EmbeddedSequenceItem, (kle [T_EOL, _]), (opt [",", _]), (kle [T_EOL, _])]),
+                (expect ")"),
+                (call ast[(value "sequence")])
+            ]
         }),
 
         // Tokens
@@ -244,7 +262,7 @@ impl Parser {
                 (call ast[(value "call")])],
             [T_Consumable, (call ast[(value "call")])],
             Parselet,
-            Collection,
+            EmbeddedSequence,
             Block
         }),
 
@@ -337,11 +355,10 @@ impl Parser {
             LogicalAnd
         }),
 
-        (Expression = {
-
-            // assignment
-            [Lvalue, _, "=", (not {">", "="}), //avoid wrongly matching "=>" or "=="
-                _, (expect Expression), (call ast[(value "assign_hold")])],
+        (Assignment = {
+            // assignments in expressions
+            [Lvalue, _, "=", (not {">", "="}), _, //avoid wrongly matching "=>" or "=="
+                (expect Expression), (call ast[(value "assign_hold")])],
             [Lvalue, _, "+=", _, (expect Expression), (call ast[(value "assign_add_hold")])],
             [Lvalue, _, "-=", _, (expect Expression), (call ast[(value "assign_sub_hold")])],
             [Lvalue, _, "*=", _, (expect Expression), (call ast[(value "assign_mul_hold")])],
@@ -350,6 +367,8 @@ impl Parser {
             // normal expression starting with LogicalOr
             LogicalOr
         }),
+
+        (Expression = Assignment),
 
         (StatementOrEmpty = {
             Statement,
@@ -403,6 +422,7 @@ impl Parser {
         (SequenceItem = {
             [T_Alias, _, "=>", _, (expect Expression), (call ast[(value "alias")])],
             [Expression, "=>", _, (expect Expression), (call ast[(value "alias")])],
+            List,
             Statement
         }),
 

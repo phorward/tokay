@@ -1224,22 +1224,27 @@ fn traverse_node(compiler: &mut Compiler, node: &Dict) -> ImlResult {
             ImlResult::Ops(ops)
         }
 
-        // sequence  ------------------------------------------------------
-        "sequence" => {
+        // sequence | list  ------------------------------------------------
+        "sequence" | "list" => {
             let children = List::from(&node["children"]);
-
             let mut ops = Vec::new();
 
             for node in children.iter() {
                 ops.extend(traverse_node_or_list(compiler, node).into_ops(compiler, true))
             }
 
-            if ops.len() == 1 {
+            if emit == "sequence" {
+                if ops.len() == 1 {
+                    ImlResult::Ops(ops)
+                } else if ops.len() > 0 {
+                    ImlResult::Ops(vec![ImlSequence::new(ops)])
+                } else {
+                    ImlResult::Empty
+                }
+            }
+            else {
+                ops.push(ImlOp::Op(Op::MakeList(children.len())));
                 ImlResult::Ops(ops)
-            } else if ops.len() > 0 {
-                ImlResult::Ops(vec![ImlSequence::new(ops)])
-            } else {
-                ImlResult::Empty
             }
         }
 
@@ -1324,6 +1329,15 @@ pub fn print(ast: &RefValue) {
 
 tokay_function!("ast(emit, value=void)", {
     let context = context.unwrap();
+
+    /*
+    if emit.to_string() == "list" {
+        println!("--- list ---");
+        for (i, item) in context.runtime.stack[context.capture_start..].iter().enumerate() {
+            println!("{} {:?}", i, item);
+        }
+    }
+    */
 
     let mut ret = Dict::new();
     ret.insert("emit".to_string(), emit);

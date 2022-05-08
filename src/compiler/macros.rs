@@ -65,6 +65,18 @@ macro_rules! tokay {
         }
     };
 
+    // Assign an identifier
+    ( $compiler:expr, ( $name:ident = $value:ident ) ) => {
+        {
+            let name = stringify!($name).to_string();
+            let value = $compiler.get_constant(stringify!($value)).unwrap();
+
+            $compiler.set_constant(&name, value);
+
+            None
+        }
+    };
+
     // Assign whitespace
     ( $compiler:expr, ( _ = { $( $item:tt ),* } ) ) => {
         {
