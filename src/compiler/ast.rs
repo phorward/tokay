@@ -1228,8 +1228,12 @@ fn traverse_node(compiler: &mut Compiler, node: &Dict) -> ImlResult {
         }
 
         // sequence  ------------------------------------------------------
-        "sequence" => {
-            let children = List::from(&node["children"]);
+        "sequence" | "list" => {
+            let children = if let Some(children) = node.get("children") {
+                List::from(children)
+            } else {
+                List::new()
+            };
 
             let mut ops = Vec::new();
 
@@ -1237,12 +1241,17 @@ fn traverse_node(compiler: &mut Compiler, node: &Dict) -> ImlResult {
                 ops.extend(traverse_node_or_list(compiler, node).into_ops(compiler, true))
             }
 
-            if ops.len() == 1 {
-                ImlResult::Ops(ops)
-            } else if ops.len() > 0 {
-                ImlResult::Ops(vec![ImlSequence::new(ops)])
+            if emit == "sequence" {
+                if ops.len() == 1 {
+                    ImlResult::Ops(ops)
+                } else if ops.len() > 0 {
+                    ImlResult::Ops(vec![ImlSequence::new(ops)])
+                } else {
+                    ImlResult::Empty
+                }
             } else {
-                ImlResult::Empty
+                ops.push(Op::MakeList(children.len()).into());
+                ImlResult::Ops(ops)
             }
         }
 

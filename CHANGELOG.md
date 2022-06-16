@@ -6,6 +6,11 @@ Current main branch.
 
 - General
   - Moved `macros` into separate repository [tokay-macros](https://github.com/tokay-lang/tokay-macros)
+- Syntax
+  - Improved syntax for inline blocks and sequences (`|`-operator)
+  - Improved list syntax
+    - `()` the empty list
+    - `(1,)` list with one item (explicit comma required)
 - Compiler
   - Include `prelude.tok` with default parselets
     - `Number` matches either `Float` or `Int`

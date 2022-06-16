@@ -163,8 +163,14 @@ InlineSequenceItem : @{
 }
 
 InlineSequence : @{
+    # Special case: Expression followed by "," is considered as a list with a single item (syntactic sugar)
+    Expression (T_EOL _)* (',' _)? (T_EOL _)* peek ')'  ast("list")
+
+    # A sequence is a list of items optionally separated by ","
     (InlineSequenceItem (T_EOL _)* (',' _)? (T_EOL _)*)+  ast("sequence")
-    Void  ast("value_list")
+
+    # The empty sequences generates an empty list
+    Void  ast("list")
 }
 
 InlineSequences : @{

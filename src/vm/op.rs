@@ -2,7 +2,7 @@ use super::*;
 use crate::error::Error;
 use crate::reader::Offset;
 use crate::value;
-use crate::value::{Dict, Object, Str, Value};
+use crate::value::{Dict, List, Object, Str, Value};
 use std::io;
 use std::io::prelude::*;
 use std::rc::Rc;
@@ -99,7 +99,8 @@ pub enum Op {
     StoreIndexHold,
 
     MakeAlias,       // Make key-value-Capture from last two stack items
-    MakeDict(usize), // Make a Dict from specified amount of key-value-pairs
+    MakeList(usize), // Make a List from specified amount of items on stack
+    MakeDict(usize), // Make a Dict from specified amount of key-value-pairs on the stack
 
     // Operations
     Drop,  // drop TOS
@@ -624,6 +625,16 @@ impl Op {
                     }
 
                     Ok(Accept::Next)
+                }
+
+                Op::MakeList(count) => {
+                    let mut list = List::new();
+
+                    for _ in 0..*count {
+                        list.insert(0, context.pop());
+                    }
+
+                    context.push(RefValue::from(list))
                 }
 
                 Op::MakeDict(count) => {

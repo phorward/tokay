@@ -31,12 +31,11 @@ impl Object for List {
             ret.push_str(&item.borrow().repr());
         }
 
-        ret.push(')');
-
-        if self.len() <= 1 {
-            ret = format!("list{}", ret);
+        if self.len() == 1 {
+            ret.push(',');
         }
 
+        ret.push(')');
         ret
     }
 
@@ -283,7 +282,7 @@ fn test_list_len() {
 #[test]
 fn test_list_iadd() {
     assert_eq!(
-        crate::run("l = list(1); l += 2; l += (3, 4); l", ""),
+        crate::run("l = (1,); l += 2; l += (3, 4); l", ""),
         Ok(Some(crate::value!([1, 2, 3, 4])))
     )
 }
@@ -291,7 +290,7 @@ fn test_list_iadd() {
 #[test]
 fn test_list_add() {
     assert_eq!(
-        crate::run("l = list(1); l + (2, 3) l", ""),
+        crate::run("l = (1,); l + (2, 3) l", ""),
         Ok(Some(crate::value!([[1, 2, 3], [1]])))
     )
 }
@@ -299,7 +298,7 @@ fn test_list_add() {
 #[test]
 fn test_list_push() {
     assert_eq!(
-        crate::run("l = list(1); l.push(2); l.push((3, 4)); l", ""),
+        crate::run("l = (1,); l.push(2); l.push((3, 4)); l", ""),
         Ok(Some(crate::value!([1, 2, [3, 4]])))
     );
 
@@ -345,8 +344,8 @@ fn test_list_repr() {
     */
 
     assert_eq!(
-        crate::run("l = list(); l += 1; repr(l)", ""),
-        Ok(Some(crate::value!("list(1)")))
+        crate::run("l = (); l += 1; repr(l)", ""),
+        Ok(Some(crate::value!("(1,)")))
     );
 
     assert_eq!(

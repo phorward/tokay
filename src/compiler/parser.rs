@@ -224,14 +224,20 @@ impl Parser {
         }),
 
         (InlineSequence = {
+            // Special case: Expression followed by "," is considered as a list with a single item (syntactic sugar)
+            [Expression, (kle [T_EOL, _]), ",", _, (kle [T_EOL, _]), (peek ")"), (call ast[(value "list")])],
+            // A sequence is a list of items optionally separated by ","
             [(pos [InlineSequenceItem, (kle [T_EOL, _]), (opt [",", _]), (kle [T_EOL, _])]), (call ast[(value "sequence")])],
-            [Void, (call ast[(value "value_void")])]
+            // The empty sequences generates an empty list
+            [Void, (call ast[(value "list")])]
         }),
 
         (InlineSequences = {
+            // Multiple sequences delimited by "|" are an alternative form of the block syntax
             ["(", _, (kle [T_EOL, _]), InlineSequence,
                 (pos [(kle [T_EOL, _]), "|", _, (kle [T_EOL, _]), InlineSequence]), (expect ")"),
                     (call ast[(value "block")])],
+            // In case there's only a single sequence, handle it just as a sequence without a block
             ["(", _, (kle [T_EOL, _]), InlineSequence, (expect ")")]
         }),
 
