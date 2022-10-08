@@ -4,6 +4,7 @@ use crate::value;
 use crate::{Accept, Context, Error, Reject};
 use num::{ToPrimitive, Zero};
 use num_bigint::BigInt;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -264,6 +265,24 @@ impl RefValue {
         let res = self.clone().binary_op(operand, &op[1..])?;
         *self.borrow_mut() = res.into();
         Ok(self)
+    }
+}
+
+impl Serialize for RefValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for RefValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
     }
 }
 

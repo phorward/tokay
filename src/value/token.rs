@@ -5,6 +5,7 @@ use crate::vm::*;
 use charclass::{charclass, CharClass};
 use num_bigint::BigInt;
 use num_parse::*;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokay_macros::tokay_token;
 extern crate self as tokay;
 
@@ -17,7 +18,7 @@ pub enum Token {
     Chars(CharClass),                   // Matches multiple characters from a character class
     BuiltinChars(fn(ch: char) -> bool), // Matches multiple characters from a callback function
     Match(String),                      // Match a string
-    Touch(String),                      // Match a string with zero severity
+    Touch(String),                      // Match a string with low severity
 }
 
 impl Token {
@@ -174,6 +175,24 @@ impl Token {
                 }
             }
         }
+    }
+}
+
+impl Serialize for Token {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for Token {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
     }
 }
 

@@ -1,5 +1,6 @@
 //! List object
 use super::{BoxedObject, Object, RefValue};
+use serde::{Deserialize, Serialize};
 use tokay_macros::tokay_method;
 extern crate self as tokay;
 
@@ -7,7 +8,8 @@ extern crate self as tokay;
 type InnerList = Vec<RefValue>;
 
 /// List object type
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct List {
     list: InnerList,
 }

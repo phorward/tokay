@@ -1,6 +1,7 @@
 use super::Dict;
 use crate::{Accept, Context, Reject};
 use num_bigint::BigInt;
+use erased_serde;
 use std::any::Any;
 
 // BoxedObject
@@ -118,6 +119,50 @@ impl PartialOrd for BoxedObject {
     }
 }
 
+/*
+// SerializeBoxedObject
+// ----------------------------------------------------------------------------
+
+pub trait SerializeBoxedObject {
+    fn dyn_serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer;
+}
+
+impl<T> SerializeBoxedObject for T
+where
+    T: 'static + Object + Serialize,
+{
+    fn dyn_serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.serialize(serializer)
+    }
+}
+
+// DeserializeBoxedObject
+// ----------------------------------------------------------------------------
+
+pub trait DeserializeBoxedObject<'de> {
+    fn dyn_deserialize<D>(&self, deserializer: D) -> Result<BoxedObject, D::Error>
+    where
+        D: Deserializer<'de>;
+}
+
+impl<'de, T> DeserializeBoxedObject<'de> for T
+where
+    T: 'static + Object + Deserialize<'de>,
+{
+    fn dyn_deserialize<D>(&self, deserializer: D) -> Result<BoxedObject, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Box::new(self.deserializer(deserializer))
+    }
+}
+*/
+
 // Object
 // ----------------------------------------------------------------------------
 
@@ -127,6 +172,7 @@ pub trait Object:
     + CloneBoxedObject
     + PartialEqBoxedObject
     + PartialOrdBoxedObject
+    + erased_serde::Serialize
     + std::any::Any
     + std::fmt::Debug //+ std::fmt::Display
 {

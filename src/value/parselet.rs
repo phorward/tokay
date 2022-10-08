@@ -1,12 +1,10 @@
 //! Parselet object represents a callable, user-defined function.
-
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use super::{BoxedObject, Dict, List, Object, RefValue};
-
 use crate::error::Error;
 use crate::vm::*;
+use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /** Parselet is the conceptual building block of a Tokay program.
 
@@ -21,7 +19,7 @@ Parselets support static program constructs being left-recursive, and extend
 the generated parse tree automatically until no more input can be consumed.
 */
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Parselet {
     pub(crate) name: String, // Parselet's name from source (for debugging)
     pub(crate) consuming: Option<bool>, // Indicator for consuming & left-recursion
@@ -518,7 +516,7 @@ impl From<Parselet> for RefValue {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParseletRef(pub Rc<RefCell<Parselet>>);
 
 impl Object for ParseletRef {

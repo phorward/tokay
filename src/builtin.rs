@@ -5,6 +5,7 @@ use crate::value::{Dict, Object, RefValue, Value};
 use crate::{Accept, Context, Reject};
 extern crate self as tokay;
 use std::io::{self, Write};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokay_macros::tokay_function;
 
 // Abstraction of a built-in function
@@ -67,6 +68,24 @@ impl Builtin {
 
 #[derive(Clone)]
 pub struct BuiltinRef(pub &'static Builtin);
+
+impl Serialize for BuiltinRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for BuiltinRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
+    }
+}
 
 impl Object for BuiltinRef {
     fn name(&self) -> &'static str {

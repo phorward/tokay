@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::reader::Offset;
 use crate::value;
 use crate::value::{Dict, List, Object, Str, Value};
+use serde::{Deserialize, Serialize};
 use std::io;
 use std::io::prelude::*;
 use std::rc::Rc;
@@ -14,7 +15,7 @@ Atomic operations.
 
 Specifies all atomic level VM code operations to run the Tokay VM.
 */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Op {
     Nop,
     Offset(Box<Offset>), // Source offset position for debugging

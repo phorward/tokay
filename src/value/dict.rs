@@ -5,13 +5,15 @@ use crate::Error;
 use indexmap::IndexMap;
 use tokay_macros::tokay_method;
 extern crate self as tokay;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 // Alias for the inner dict
 type InnerDict = IndexMap<String, RefValue>;
 
 // Dict object type
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Dict {
     dict: InnerDict,
 }

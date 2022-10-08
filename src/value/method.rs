@@ -2,8 +2,9 @@
 
 use super::{Dict, Object, RefValue, Value};
 use crate::vm::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Method {
     pub(super) object: RefValue,
     pub(super) method: RefValue,
