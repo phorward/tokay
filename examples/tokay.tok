@@ -414,4 +414,13 @@ Tokay : @{
     .  error("Parse error, unexpected token", true)
 }
 
-_ Tokay? expect EOF  ast_print(ast("main"))
+root = @(_ Tokay? expect EOF  ast("main"))
+
+dump_value_call : @node {
+    print(node["emit"])
+    #if children = node["children"] {
+    #    print(type(children))
+    #}
+}
+
+dump_value_call(root)
