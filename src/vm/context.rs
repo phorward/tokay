@@ -483,6 +483,52 @@ impl<'program, 'reader, 'thread, 'parselet> Context<'program, 'reader, 'thread, 
             return self.run_as_main();
         }
 
+        let mut state = Ok(Accept::Next);
+
+        for (i, (name, section)) in [
+            ("begin", &self.parselet.begin),
+            ("body", &self.parselet.body),
+            ("end", &self.parselet.end),
+        ]
+        .iter()
+        .enumerate()
+        {
+            if section.is_empty() {
+                continue;
+            }
+
+            loop {
+                state = self.execute(name, section);
+
+                match state {
+                    Err(Reject::Skip) => {}
+                    Ok(Accept::Next | Accept::Push(_)) => break,
+                    Ok(Accept::Repeat) => {}
+                    Ok(accept) => return Ok(accept.into_push(self.parselet.severity)),
+                    other => return other,
+                }
+
+                if i != 1 || self.thread.reader.eof {
+                    state = Ok(Accept::Next);
+                    break;
+                }
+
+                // Reset capture stack for loop repeat
+                self.reset(Some(self.thread.reader.tell()));
+            }
+        }
+
+        if let Ok(accept) = state {
+            state = Ok(accept.into_push(self.parselet.severity));
+        }
+
+        if self.thread.debug > 3 {
+            self.log(&format!("state = {:?}", state));
+        }
+
+        state
+
+        /*
         // Begin
         let mut ret = match self.execute("begin", &self.parselet.begin) {
             Ok(Accept::Next) | Err(Reject::Skip) => Capture::Empty,
@@ -538,6 +584,7 @@ impl<'program, 'reader, 'thread, 'parselet> Context<'program, 'reader, 'thread, 
         }
 
         Ok(ret)
+        */
     }
 
     /** Run the current context as a main parselet.
