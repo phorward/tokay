@@ -406,6 +406,7 @@ fn traverse_node_static(scope: &Scope, assign: Option<String>, node: &Dict) -> I
     let emit = node["emit"].borrow();
     let emit = emit.object::<Str>().unwrap().as_str();
 
+    /*
     // Special case: Put a generic with an assignment name into its own parselet
     if emit == "value_generic" && assign.is_some() {
         // Handle anything else as an implicit parselet in its own scope
@@ -425,7 +426,8 @@ fn traverse_node_static(scope: &Scope, assign: Option<String>, node: &Dict) -> I
         );
 
         ImlValue::from(implicit_parselet)
-    } else if emit.starts_with("value_") {
+    } else */
+    if emit.starts_with("value_") {
         traverse_node_value(scope, node, assign).try_resolve(scope)
     } else {
         // Handle anything else as an implicit parselet in its own scope

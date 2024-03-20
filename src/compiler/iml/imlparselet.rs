@@ -229,16 +229,7 @@ impl ImlParselet {
                 changes = true;
             }
 
-            if let Some(value) = value {
-                match value {
-                    ImlValue::SelfValue | ImlValue::SelfToken => {
-                        // Replace any references of self by from
-                        *value = ImlValue::Parselet(from.clone());
-                        changes = true;
-                    }
-                    _ => {}
-                }
-            } else {
+            if value.is_none() {
                 required.push(name.to_string());
             }
         }

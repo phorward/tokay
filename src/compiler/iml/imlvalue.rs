@@ -170,6 +170,8 @@ impl ImlValue {
             } => {
                 let target = target.resolve(scope);
 
+                // Wie wär's, wenn eine Instance bis zum compilen eine Instance bleibt?
+
                 if let ImlValue::Parselet(parselet) = &target {
                     let parselet = parselet.borrow();
                     let mut generics = IndexMap::new();
@@ -181,11 +183,11 @@ impl ImlValue {
                         // Take arguments by sequence first
                         let arg = if !args.is_empty() {
                             let arg = args.remove(0);
-                            (arg.0, Some(arg.1.try_resolve(scope)))
+                            (arg.0, Some(arg.1.resolve(scope)))
                         }
                         // Otherwise, take named arguments
                         else if let Some(narg) = nargs.shift_remove(name) {
-                            (narg.0, Some(narg.1.try_resolve(scope)))
+                            (narg.0, Some(narg.1.resolve(scope)))
                         }
                         // Otherwise, use default
                         else {
@@ -306,7 +308,7 @@ impl ImlValue {
                     true
                 }
             }
-            Self::Instance { target, .. } => true,
+            Self::Instance { .. } => true,
             _ => false,
         }
     }
@@ -435,15 +437,17 @@ impl std::fmt::Display for ImlValue {
             Self::SelfToken => write!(f, "Self"),
             Self::VoidToken => write!(f, "Void"),
             Self::Value(value) => write!(f, "{}", value.repr()),
-            Self::Parselet(parselet) => write!(
-                f,
-                "{}",
-                parselet
-                    .borrow()
-                    .name
-                    .as_deref()
-                    .unwrap_or("<anonymous parselet>")
-            ),
+            Self::Parselet(parselet) => {
+                write!(
+                    f,
+                    "{}",
+                    parselet
+                        .borrow()
+                        .name
+                        .as_deref()
+                        .unwrap_or("<anonymous parselet>")
+                )
+            }
             Self::Variable {
                 name, is_global, ..
             } if *is_global => write!(f, "{}", name),
@@ -496,12 +500,8 @@ impl std::hash::Hash for ImlValue {
                 state.write_u8('p' as u8);
                 parselet.hash(state);
             }
-            /*
-            Self::This(consumable) => {
-                state.write_u8('s' as u8);
-                consumable.hash(state);
-            }
-            */
+            Self::SelfValue => state.write_u8('s' as u8),
+            Self::SelfToken => state.write_u8('S' as u8),
             other => unreachable!("{:?} is unhashable", other),
         }
     }

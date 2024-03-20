@@ -145,7 +145,11 @@ impl Compiler {
         let mut program = ImlProgram::new(ImlValue::from(main_parselet));
         program.debug = self.debug > 1;
 
-        match program.compile() {
+        let ret = program.compile();
+
+        // println!("\n--- program compiled: {:?} ---\n", ret);
+
+        match ret {
             Ok(program) => {
                 if self.debug > 1 {
                     println!("--- Finalized program ---");
