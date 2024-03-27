@@ -3,8 +3,8 @@ Assignment : @<Expression, Assignment: Assignment, ext: void> {
     Expression  ast("value")
 }
 
-HoldAssignment : Assignment<Int, HoldAssignment>  # endless recursion!
-# HoldAssignment : Assignment<Int, HoldAssignment> Empty  # works!
+# HoldAssignment : Assignment<Int, HoldAssignment>  # fails with endless recursion!
+HoldAssignment : Assignment<Int, HoldAssignment> Empty  # workaround!
 
 # ast_print(Assignment<Int>)
 ast_print(HoldAssignment)

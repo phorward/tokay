@@ -119,7 +119,6 @@ impl ImlValue {
             Self::Shared(rc) => {
                 match Rc::try_unwrap(rc) {
                     Ok(value) => {
-                        // println!("UNCHAIN {:?}", value);
                         value.into_inner().resolve(scope)
                     }
                     Err(rc) => {
@@ -132,28 +131,6 @@ impl ImlValue {
                             *value = resolved.clone();
                             resolved
                         }
-
-                        /*
-                        let mut later = false;
-
-                        match rc.try_borrow_mut() {
-                            Ok(mut value) => {
-                                let resolved = value.clone().resolve(scope, i + 1);
-                                if !matches!(resolved, Self::Name { .. } | Self::Instance { .. }) {
-                                    *value = resolved.clone();
-                                    return resolved;
-                                }
-                            }
-                            Err(_) => later = true,
-                        }
-
-                        if later {
-                            ImlValue::Shared(rc).later(scope)
-                        }
-                        else {
-                            ImlValue::Shared(rc)
-                        }
-                        */
                     }
                 }
             }

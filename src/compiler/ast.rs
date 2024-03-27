@@ -426,7 +426,8 @@ fn traverse_node_static(scope: &Scope, assign: Option<String>, node: &Dict) -> I
         );
 
         ImlValue::from(implicit_parselet)
-    } else */
+    } else
+    */
     if emit.starts_with("value_") {
         traverse_node_value(scope, node, assign).try_resolve(scope)
     } else {
