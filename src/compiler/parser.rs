@@ -8928,7 +8928,7 @@ impl Parser {
 
         Self(
             compiler
-                .compile_from_ast(&ast)
+                .compile_from_ast(&ast, Some("parser".to_string()))
                 .expect("Tokay grammar cannot be compiled!")
                 .expect("Tokay grammar contains no main?"),
         )

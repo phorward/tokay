@@ -248,7 +248,7 @@ pub fn tokay_method(input: TokenStream) -> TokenStream {
             mut nargs: Option<tokay::Dict>
         ) -> Result<tokay::RefValue, tokay::Error> {
             // The function's original name in Tokay
-            let __function = stringify!(#name());
+            let __function = concat!(stringify!(#name), "()");
 
             // Arguments
             #(#arguments)*
@@ -311,7 +311,7 @@ pub fn tokay_function(input: TokenStream) -> TokenStream {
             mut nargs: Option<tokay::Dict>
         ) -> Result<tokay::vm::Accept, tokay::vm::Reject> {
             // The function's original name in Tokay
-            let __function = stringify!(#name());
+            let __function = concat!(stringify!(#name), "()");
 
             // Arguments
             #(#arguments)*
@@ -364,7 +364,7 @@ pub fn tokay_token(input: TokenStream) -> TokenStream {
             mut nargs: Option<tokay::Dict>
         ) -> Result<tokay::Accept, tokay::Reject> {
             // The function's original name in Tokay
-            let __function = stringify!(#name());
+            let __function = concat!(stringify!(#name), "()");
 
             // Arguments
             #(#arguments)*

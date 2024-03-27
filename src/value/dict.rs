@@ -98,7 +98,7 @@ impl Dict {
     }
 
     pub fn remove_str(&mut self, key: &str) -> Option<RefValue> {
-        self.remove(&RefValue::from(key)) // fixme: improve lookup!
+        self.shift_remove(&RefValue::from(key)) // fixme: improve lookup!
     }
 
     tokay_method!("dict : @", Ok(RefValue::from(Dict::new())));
@@ -244,7 +244,7 @@ impl Dict {
 
         if let Some(dict) = dict.object_mut::<Dict>() {
             if value.is_void() {
-                dict.remove(&item);
+                dict.shift_remove(&item);
                 Ok(value![void])
             } else {
                 dict.insert(item, value.clone());
@@ -323,7 +323,7 @@ impl Dict {
                 });
             }
 
-            Ok(if let Some(value) = dict.remove(&key) {
+            Ok(if let Some(value) = dict.shift_remove(&key) {
                 value
             } else {
                 default

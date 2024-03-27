@@ -6,21 +6,22 @@ use crate::vm::Program;
 use crate::Error;
 use crate::{Object, RefValue};
 use indexmap::{indexmap, IndexMap, IndexSet};
+use log;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 pub(in crate::compiler) struct ImlProgram {
+    main: ImlValue,
     statics: IndexMap<ImlValue, Option<Parselet>>, // static values with optional final parselet replacement
     pub errors: Vec<Error>, // errors collected during finalization (at least these are unresolved symbols)
-    pub debug: bool,        // Debug
 }
 
 impl ImlProgram {
     pub fn new(main: ImlValue) -> Self {
         ImlProgram {
+            main: main.clone(),
             statics: indexmap!(main => None),
             errors: Vec::new(),
-            debug: false,
         }
     }
 
@@ -58,6 +59,8 @@ impl ImlProgram {
     and nullable parselet detection occurs.
     */
     pub fn compile(mut self) -> Result<Program, Vec<Error>> {
+        log::info!("compiling {}", self.main);
+
         let mut finalize = HashSet::new(); // list of consuming parselets required to be finalized
 
         // Loop until end of statics is reached
@@ -65,6 +68,12 @@ impl ImlProgram {
 
         // self.statics grows inside of this while loop, therefore this condition.
         while idx < self.statics.len() {
+            log::trace!(
+                "idx = {: >3}, statics.len() = {: >3}",
+                idx,
+                self.statics.len()
+            );
+
             // Pick only intermediate parselets, other static values are directly moved
             let parselet = match self.statics.get_index_mut(idx).unwrap() {
                 (_, Some(_)) => unreachable!(), // may not exist!
@@ -75,7 +84,7 @@ impl ImlProgram {
                 }
             };
 
-            // println!("\n::: {} {:?} :::\n", idx, parselet.borrow().name);
+            log::trace!("idx = {: >3}, parselet = {:?}", idx, parselet.borrow().name);
 
             // Memoize parselets required to be finalized (needs a general rework later...)
             if parselet.borrow().model.borrow().is_consuming {
@@ -96,12 +105,10 @@ impl ImlProgram {
         }
 
         // Finalize parselets
-        if self.debug {
-            println!("--- Parselets to finalize ---");
+        log::debug!("{} has {} parselets to finalize", self.main, finalize.len());
 
-            for (i, parselet) in finalize.iter().enumerate() {
-                println!("{:?} => {:#?}", i, parselet);
-            }
+        for (i, parselet) in finalize.iter().enumerate() {
+            log::trace!(" {: >3} => {:#?}", i, parselet);
         }
 
         let leftrec = self.finalize(finalize);
@@ -127,11 +134,11 @@ impl ImlProgram {
             })
             .collect();
 
-        /*
+        log::debug!("{} has {} statics compiled", self.main, statics.len());
+
         for (i, value) in statics.iter().enumerate() {
-            println!("{} : {:?}", i, value.borrow());
+            log::trace!(" {: >3} : {:#?}", i, value);
         }
-        */
 
         Ok(Program::new(statics))
     }
@@ -336,7 +343,7 @@ impl ImlProgram {
                     finalize_op(part, current, visited, configs);
                 }
 
-                visited.remove(current);
+                visited.shift_remove(current);
 
                 Some(Consumable {
                     leftrec: false,
@@ -370,17 +377,19 @@ impl ImlProgram {
             }
         }
 
-        /*
-        println!("--- final config ---");
+        log::debug!(
+            "{} has {} parselets finalized",
+            self.statics.keys()[0],
+            parselets.len()
+        );
 
         for parselet in &parselets {
-            println!(
-                "{} consuming={:?}",
+            log::trace!(
+                " {} consuming={:?}",
                 parselet.borrow().name.as_deref().unwrap_or("(unnamed)"),
                 configs[&parselet]
             );
         }
-        */
 
         configs.into_iter().map(|(k, v)| (k, v.leftrec)).collect()
     }

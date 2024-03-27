@@ -206,7 +206,7 @@ Check out the [tokay-artwork](https://github.com/tokay-lang/tokay-artwork) repos
 
 ## License
 
-Copyright © 2023 by Jan Max Meyer, Phorward Software Technologies.
+Copyright © 2024 by Jan Max Meyer, Phorward Software Technologies.
 
 Tokay is free software under the MIT license.<br>
 Please see the LICENSE file for details.

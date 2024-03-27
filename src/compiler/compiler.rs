@@ -7,6 +7,7 @@ use crate::value;
 use crate::value::RefValue;
 use crate::vm::*;
 use indexmap::{indexset, IndexMap, IndexSet};
+use log;
 use std::cell::RefCell;
 
 /** Tokay compiler instance
@@ -76,14 +77,17 @@ impl Compiler {
     pub(super) fn compile_from_ast(
         &mut self,
         ast: &RefValue,
+        name: Option<String>,
     ) -> Result<Option<Program>, Vec<Error>> {
+        log::trace!("compile_from_ast");
+
         // Create main parselet from current main model
         let main_parselet = ImlParselet::new(ImlParseletInstance::new(
             // TODO: Keep backward compatible: copy Compiler's main model into the main_parselet
             Some(self.main.clone()),
             None,
             None,
-            Some("__main__".to_string()),
+            Some(name.unwrap_or("__main__".to_string())),
             5,
             false,
         ));
@@ -142,8 +146,7 @@ impl Compiler {
             println!("--- Intermediate main ---\n{:#?}", main_parselet);
         }
 
-        let mut program = ImlProgram::new(ImlValue::from(main_parselet));
-        program.debug = self.debug > 1;
+        let program = ImlProgram::new(ImlValue::from(main_parselet));
 
         let ret = program.compile();
 
@@ -164,6 +167,8 @@ impl Compiler {
 
     /** Compile a Tokay program from a Reader source into the compiler. */
     pub fn compile(&mut self, reader: Reader) -> Result<Option<Program>, Vec<Error>> {
+        log::trace!("compile");
+
         // Create the Tokay parser when not already done
         if self.parser.is_none() {
             self.parser = Some(Parser::new());
@@ -183,7 +188,7 @@ impl Compiler {
             //println!("###\n{:#?}\n###", ast);
         }
 
-        self.compile_from_ast(&ast)
+        self.compile_from_ast(&ast, None)
     }
 
     /// Shortcut to compile a Tokay program from a &str into the compiler.
@@ -200,12 +205,16 @@ impl Compiler {
     (althought they are different objects, but  the same value)
     */
     pub(super) fn register_static(&self, value: RefValue) -> ImlValue {
+        log::trace!("register_static value = {:?}", value);
         let mut statics = self.statics.borrow_mut();
 
         if let Some(value) = statics.get(&value) {
+            log::trace!("value already known");
             ImlValue::Value(value.clone())
         } else {
             statics.insert(value.clone());
+
+            log::trace!("value added to registry");
             ImlValue::Value(value)
         }
     }

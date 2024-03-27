@@ -167,6 +167,6 @@ d
 #(esel => 1 bert => 2 edgar => 42 klaus => 23)
 #"eugen"
 #2
-#(esel => 1 klaus => 23 edgar => 42)
-#42
-#(esel => 1 klaus => 23)
+#(esel => 1 edgar => 42 klaus => 23)
+#23
+#(esel => 1 edgar => 42)

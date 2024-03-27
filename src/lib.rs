@@ -1,5 +1,5 @@
 // Tokay
-// Copyright © 2023 by Jan Max Meyer, Phorward Software Technologies.
+// Copyright © 2024 by Jan Max Meyer, Phorward Software Technologies.
 // Licensed under the MIT license. See LICENSE for more information.
 
 /*! Tokay

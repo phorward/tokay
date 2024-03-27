@@ -1,6 +1,6 @@
 [package]
 name = "tokay-macros"
-version = "0.4.0"
+version = "0.5.0"
 description = "Macro support for Rust-native builtin functions for the Tokay programming language."
 authors = ["Jan Max Meyer <jmm@phorward.de>"]
 homepage = "https://tokay.dev/"

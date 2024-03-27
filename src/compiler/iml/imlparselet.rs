@@ -3,6 +3,7 @@ use super::*;
 use crate::reader::Offset;
 use crate::value::Parselet;
 use indexmap::IndexMap;
+use log;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -264,7 +265,7 @@ impl ImlParselet {
         let instance = self.instance.borrow();
         let model = instance.model.borrow();
 
-        // println!("--- compile {:#?} ---", instance);
+        log::debug!("compiling {}", instance);
 
         Parselet::new(
             Some(format!("{}", instance)),

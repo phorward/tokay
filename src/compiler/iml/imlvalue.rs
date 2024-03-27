@@ -5,6 +5,7 @@ use crate::utils;
 use crate::value::{Object, RefValue, Value};
 use crate::Error;
 use indexmap::IndexMap;
+use log;
 use num::ToPrimitive;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -87,17 +88,19 @@ impl ImlValue {
 
     /// Try to resolve immediatelly, otherwise push shared reference to compiler's unresolved ImlValue.
     pub fn try_resolve(mut self, scope: &Scope) -> Self {
+        log::trace!("try_resolve {:?}", self);
+
         self = self.resolve(scope);
 
         match &self {
             Self::Name { .. } | Self::Instance { .. } => {
-                // Create a new shared ImlValue
+                log::trace!("Inserting new shared usage");
                 let shared = Self::Shared(Rc::new(RefCell::new(self)));
                 scope.usages.borrow_mut().push(shared.clone());
                 shared
             }
             Self::Shared(_) => {
-                // Insert an already shared ImlValue into usages
+                log::trace!("Reinserting already shared usage");
                 scope.usages.borrow_mut().push(self.clone());
                 self
             }
@@ -116,26 +119,28 @@ impl ImlValue {
     */
     fn resolve(self, scope: &Scope) -> ImlValue {
         match self {
-            Self::Shared(rc) => {
-                match Rc::try_unwrap(rc) {
-                    Ok(value) => {
-                        value.into_inner().resolve(scope)
-                    }
-                    Err(rc) => {
-                        let resolved = rc.borrow().clone().resolve(scope);
+            Self::Shared(rc) => match Rc::try_unwrap(rc) {
+                Ok(value) => {
+                    log::trace!("resolving unwrapped shared");
+                    value.into_inner().resolve(scope)
+                }
+                Err(rc) => {
+                    log::trace!("resolving still wrapped shared");
+                    let resolved = rc.borrow().clone().resolve(scope);
 
-                        if matches!(resolved, Self::Name { .. } | Self::Instance { .. }) {
-                            ImlValue::Shared(rc)
-                        } else {
-                            let mut value = rc.borrow_mut();
-                            *value = resolved.clone();
-                            resolved
-                        }
+                    if matches!(resolved, Self::Name { .. } | Self::Instance { .. }) {
+                        ImlValue::Shared(rc)
+                    } else {
+                        let mut value = rc.borrow_mut();
+                        *value = resolved.clone();
+                        resolved
                     }
                 }
-            }
+            },
             Self::Name { offset, ref name } => {
-                scope.resolve_name(offset.clone(), &name).unwrap_or(self)
+                let found = scope.resolve_name(offset.clone(), &name);
+                log::trace!("resolving name {:?} to {:?}", name, found);
+                found.unwrap_or(self)
             }
             Self::Instance {
                 offset,
@@ -145,6 +150,11 @@ impl ImlValue {
                 severity,
                 is_generated,
             } => {
+                log::trace!("resolving instance");
+                log::trace!("  target = {:?}", target);
+                log::trace!("  args = {:?}", args);
+                log::trace!("  nargs = {:?}", nargs);
+
                 let target = target.resolve(scope);
 
                 // Wie wär's, wenn eine Instance bis zum compilen eine Instance bleibt?
@@ -154,8 +164,6 @@ impl ImlValue {
                     let mut generics = IndexMap::new();
 
                     // Map args and nargs to generics of this parselet
-                    // println!("--- map {:?} ---", parselet.name);
-
                     for (name, default) in parselet.generics.iter() {
                         // Take arguments by sequence first
                         let arg = if !args.is_empty() {
@@ -170,8 +178,6 @@ impl ImlValue {
                         else {
                             (offset.clone(), default.clone())
                         };
-
-                        // println!(" {:?}", arg);
 
                         // Check integrity of constant names
                         if let (offset, Some(value)) = &arg {
@@ -232,18 +238,27 @@ impl ImlValue {
                         }
                     }
 
+                    log::trace!("creating instance from {}", parselet);
+                    for (k, v) in &generics {
+                        log::trace!("  {} => {:?}", k, v);
+                    }
+
                     // Make a parselet instance from the instance definition;
                     // This can be the final parselet instance, but constants
                     // might contain generic references as well, which are being
                     // resolved during further compilation and derivation.
-                    return ImlValue::from(ImlParselet::new(ImlParseletInstance {
+                    let parselet = ImlParselet::new(ImlParseletInstance {
                         model: parselet.model.clone(),
                         generics,
                         offset: parselet.offset.clone(),
                         name: parselet.name.clone(),
                         severity: severity.unwrap_or(parselet.severity),
                         is_generated,
-                    }));
+                    });
+
+                    log::trace!("instance {} created", parselet);
+
+                    return ImlValue::from(parselet);
                 }
 
                 Self::Instance {

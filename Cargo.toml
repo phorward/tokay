@@ -1,6 +1,6 @@
 [package]
 name = "tokay"
-version = "0.6.5"
+version = "0.6.6"
 description = "Tokay is a programming language designed for ad-hoc parsing."
 authors = [
     "Jan Max Meyer <jmm@phorward.de>"
@@ -29,13 +29,15 @@ static_expression_evaluation = []  # Evaluates static expressions like 1+2+3 dur
 
 [dependencies]
 charclass = "0.2"  # use crates.io-version
-#charclass = { version = "0.2", path = "../charclass" }  # use local version
+# charclass = { version = "0.2", path = "../charclass" }  # use local version
 clap = { version = "4", features = ["derive"] }
+env_logger = "0"
 indexmap = "2"
+log = { version = "0", features = ["release_max_level_warn"] }
 num = "0.4"
 num-bigint = "0.4"
 num-parse = "0.1"  # use crates.io-version
-#num-parse = { version = "0.1", path = "../num-parse" }  # use local version
-rustyline = "13"
-tokay-macros = "0.4"  # use crates.io-version
-#tokay-macros = { version = "0.4", path = "macros" }  # use local version
+# num-parse = { version = "0.1", path = "../num-parse" }  # use local version
+rustyline = "14"
+# tokay-macros = "0.4"  # use crates.io-version
+tokay-macros = { version = "0.5", path = "macros" }  # use local version
