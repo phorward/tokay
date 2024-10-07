@@ -443,15 +443,7 @@ impl std::fmt::Display for ImlValue {
             Self::SelfToken => write!(f, "Self"),
             Self::VoidToken => write!(f, "Void"),
             Self::Value(value) => write!(f, "{}", value.repr()),
-            Self::Parselet(parselet) => write!(
-                f,
-                "{}",
-                parselet
-                    .borrow()
-                    .name
-                    .as_deref()
-                    .unwrap_or("__AnonymousParselet__")
-            ),
+            Self::Parselet(parselet) => write!(f, "{}", parselet),
             Self::Variable {
                 name, is_global, ..
             } if *is_global => write!(f, "{}", name),
@@ -460,7 +452,6 @@ impl std::fmt::Display for ImlValue {
             Self::Generic { name, .. } => write!(f, "{}", name),
             Self::Instance(instance) => {
                 write!(f, "{}", instance.target)?;
-
                 write!(f, "<")?;
                 let mut first = true;
 
