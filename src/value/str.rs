@@ -135,6 +135,34 @@ impl Str {
         Ok(RefValue::from(string))
     });
 
+    tokay_method!("str_find : @s, pat, start=0, end=void", {
+        if !s.is("str") {
+            s = RefValue::from(s.to_string());
+        }
+
+        let string = s.borrow();
+
+        let string = string.object::<Str>().unwrap().as_str();
+        let pat = pat.borrow().to_string();
+        let start = start.to_usize().unwrap_or(0);
+
+        let end = if end.is_void() {
+            string.len()
+        } else {
+            end.to_usize().unwrap_or(string.len())
+        };
+
+        if start > end {
+            return Ok(value!(-1));
+        }
+
+        Ok(if let Some(index) = string[start..end].find(&pat) {
+            value!(start + index)
+        } else {
+            value!(-1)
+        })
+    });
+
     tokay_method!("str_endswith : @s, postfix", {
         if !s.is("str") {
             s = RefValue::from(s.to_string());
