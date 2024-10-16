@@ -1,0 +1,10 @@
+l = ,
+
+l[0] = 10
+l[10] = 20
+l[100] = 30  # it should be considered if this should be possible by default
+
+l
+
+#---
+#(10, null, null, null, null, null, null, null, null, null, 20, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 30)

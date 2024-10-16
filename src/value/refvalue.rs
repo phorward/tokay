@@ -433,6 +433,12 @@ impl std::ops::DerefMut for RefValue {
     }
 }
 
+impl Default for RefValue {
+    fn default() -> Self {
+        Value::Null.into()
+    }
+}
+
 /*
 impl std::fmt::Display for RefValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

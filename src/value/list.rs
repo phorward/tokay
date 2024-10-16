@@ -124,11 +124,7 @@ impl List {
         let len = list.len();
 
         if item >= len {
-            return Err(format!(
-                "{} assignment index {} beyond list sized {}",
-                __function, item, len
-            )
-            .into());
+            list.resize_with(item + 1, Default::default)
         }
 
         if value.is_void() {
