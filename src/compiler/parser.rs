@@ -1799,6 +1799,10 @@ impl Parser {
                                                         "children" =>
                                                             (value!([
                                                                 (value!([
+                                                                    "emit" => "identifier",
+                                                                    "value" => "_"
+                                                                ])),
+                                                                (value!([
                                                                     "emit" => "value_token_touch",
                                                                     "value" => "["
                                                                 ])),
@@ -1813,10 +1817,6 @@ impl Parser {
                                                                 (value!([
                                                                     "emit" => "value_token_touch",
                                                                     "value" => "]"
-                                                                ])),
-                                                                (value!([
-                                                                    "emit" => "identifier",
-                                                                    "value" => "_"
                                                                 ])),
                                                                 (value!([
                                                                     "emit" => "call",
@@ -2117,10 +2117,6 @@ impl Parser {
                                                                 (value!([
                                                                     "emit" => "identifier",
                                                                     "value" => "Variable"
-                                                                ])),
-                                                                (value!([
-                                                                    "emit" => "identifier",
-                                                                    "value" => "_"
                                                                 ])),
                                                                 (value!([
                                                                     "emit" => "op_mod_kle",
@@ -5057,6 +5053,10 @@ impl Parser {
                                                                                         ]))
                                                                                 ]))
                                                                             ]))
+                                                                    ])),
+                                                                    (value!([
+                                                                        "emit" => "identifier",
+                                                                        "value" => "_"
                                                                     ])),
                                                                     (value!([
                                                                         "emit" => "value_instance",

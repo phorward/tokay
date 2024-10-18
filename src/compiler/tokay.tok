@@ -1,5 +1,5 @@
 # The Tokay programming language
-# Copyright © 2023 by Jan Max Meyer, Phorward Software Technologies.
+# Copyright © 2024 by Jan Max Meyer, Phorward Software Technologies.
 # Licensed under the MIT license. See LICENSE for more information.
 #
 # This Tokay program expresses Tokay's grammar in itself.
@@ -127,7 +127,7 @@ Ccl : @{
 # Statics, Variables, Loads
 
 Subscript : @{
-    '[' _ Expression ']' _  ast("item")
+    _ '[' _ Expression ']'  ast("item")
 }
 
 Attribute : @{
@@ -147,7 +147,7 @@ Variable : @{
 }
 
 Lvalue : @{
-    Variable _ Subscript* ast("lvalue")  # Lvalue currently doesn't allow attribute assignment!
+    Variable Subscript*  ast("lvalue")  # Lvalue currently doesn't allow attribute assignment!
 }
 
 Load : @{
@@ -284,7 +284,7 @@ Atomic : @{
     TokenModifier
     Keyword<'if'> _ Expect<Expression> ___ Expect<Statement> \
         (___ Keyword<'else'> _ ___ Expect<Statement>)?  ast("op_if")
-    Keyword<'for'> _ Expect<Lvalue> Keyword<Expect<'in'>> _ Expect<Expression> \
+    Keyword<'for'> _ Expect<Lvalue> _ Keyword<Expect<'in'>> _ Expect<Expression> \
          ___ Expect<Statement>  ast("op_for")
     Keyword<'loop'> _ Expression ___ Block  ast("op_loop")
     Keyword<'loop'> _ Expect<Block>  ast("op_loop")

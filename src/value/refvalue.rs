@@ -277,7 +277,7 @@ impl RefValue {
         // When a type name was emitted, try to call builtin-function for operation
         if let Some(name) = name {
             match Builtin::get_method(name, op) {
-                Ok(builtin) => return Ok(builtin.call(None, vec![self, operand])?.unwrap()),
+                Ok(builtin) => return Ok(builtin.call(None, vec![self, operand.ref_or_copy()])?.unwrap()),
                 // default "inline" operation is the non-inline operation assigning the result to itself
                 Err(_) if op.starts_with("i") => {}
                 Err(err) => return Err(err),
@@ -430,6 +430,12 @@ impl std::ops::Deref for RefValue {
 impl std::ops::DerefMut for RefValue {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
+    }
+}
+
+impl Default for RefValue {
+    fn default() -> Self {
+        Value::Null.into()
     }
 }
 
