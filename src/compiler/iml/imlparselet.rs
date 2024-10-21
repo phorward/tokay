@@ -241,7 +241,11 @@ impl ImlRefParselet {
                 if name == "Self" || name == "self" {
                     *value = Some(ImlValue::Parselet(from.clone()));
                 } else {
-                    *value = from.borrow().generics.get(name).unwrap().clone();
+                    *value = if let Some(value) = from.borrow().generics.get(name) {
+                        value.clone()
+                    } else {
+                        panic!("name = {:?} self {:?} from {:?}", name, self, from);
+                    };
                 }
 
                 changes = true;

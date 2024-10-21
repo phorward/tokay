@@ -21,6 +21,20 @@ l = (1,)
 l + (2, 3)
 l
 
+# iadd with imutable object
+l = ,
+i = 0
+l += i
+l ++i
+
+# iadd with mutable object
+l = ,
+m = 1,2,3
+l += m
+l += m,
+m += 4
+l
+
 #---
 
 #(1, 2, 3, 4)
@@ -33,3 +47,7 @@ l
 
 #(1, 2, 3)
 #(1, )
+
+#((0, ), 1)
+
+#(1, 2, 3, (1, 2, 3, 4))
