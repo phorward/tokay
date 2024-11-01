@@ -1,25 +1,12 @@
 //! Intermediate value representation
 use super::*;
 use crate::reader::Offset;
-use crate::utils;
 use crate::value::{Object, RefValue, Value};
 use indexmap::IndexMap;
 use log;
 use num::ToPrimitive;
 use std::cell::RefCell;
 use std::rc::Rc;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(in crate::compiler) struct ImlInstance {
-    pub offset: Option<Offset>,                              // Source offset
-    pub target: Box<ImlValue>,                               // Instance target
-    pub args: Vec<(Option<Offset>, ImlValue)>,               // Sequential generic args
-    pub nargs: IndexMap<String, (Option<Offset>, ImlValue)>, // Named generic args
-    pub severity: Option<u8>,                                // optional desired severity
-    pub is_generated: bool, // flag for generated parselet (e.g. using modifier)
-}
-
-impl ImlInstance {}
 
 /** Intermediate value
 
@@ -98,7 +85,7 @@ impl ImlValue {
         self = self.resolve(scope);
 
         match &self {
-            Self::Name { .. } | Self::Instance { .. } => {
+            Self::Name { .. } => {
                 log::trace!("Inserting new shared usage into scope");
                 let shared = Self::Shared(Rc::new(RefCell::new(self)));
                 scope.usages.borrow_mut().push(shared.clone());
@@ -146,8 +133,7 @@ impl ImlValue {
                 log::trace!("resolving name {:?} to {:?}", name, found);
                 found.unwrap_or(self)
             }
-            /*
-            Self::Instance(instance) => {
+            Self::Instance(mut instance) => {
                 log::trace!("resolving instance");
                 log::trace!("  target = {:?}", instance.target);
                 log::trace!("  args = {:?}", instance.args);
@@ -166,117 +152,6 @@ impl ImlValue {
                     .collect();
 
                 ImlValue::Instance(instance)
-            }
-            */
-            Self::Instance(mut instance) => {
-                let target = instance.target.resolve(scope);
-
-                if let ImlValue::Parselet(parselet) = &target {
-                    let parselet = parselet.borrow();
-                    let mut generics = IndexMap::new();
-
-                    // Map args and nargs to generics of this parselet
-                    for (name, default) in parselet.generics.iter() {
-                        // Take arguments by sequence first
-                        let arg = if !instance.args.is_empty() {
-                            let arg = instance.args.remove(0);
-                            (arg.0, Some(arg.1.resolve(scope)))
-                        }
-                        // Otherwise, take named arguments
-                        else if let Some(narg) = instance.nargs.shift_remove(name) {
-                            (narg.0, Some(narg.1.resolve(scope)))
-                        }
-                        // Otherwise, use default
-                        else {
-                            (instance.offset.clone(), default.clone())
-                        };
-
-                        // Check integrity of constant names
-                        if let (offset, Some(value)) = &arg {
-                            if value.is_consuming() {
-                                if !utils::identifier_is_consumable(name) {
-                                    scope.push_error(
-                                        *offset,
-                                        format!(
-                                            "Cannot assign consumable {} to non-consumable generic '{}'",
-                                            value, name
-                                        )
-                                    );
-                                }
-                            } else if utils::identifier_is_consumable(name) {
-                                scope.push_error(
-                                    *offset,
-                                    format!(
-                                        "Cannot assign non-consumable {} to consumable generic {} of {}",
-                                        value, name, parselet
-                                    )
-                                );
-                            }
-                        } else {
-                            scope.push_error(
-                                arg.0,
-                                format!("Expecting argument for generic '{}'", name),
-                            );
-                        }
-
-                        generics.insert(name.clone(), arg.1);
-                    }
-
-                    // Report any errors for remaining generic arguments.
-                    if !instance.args.is_empty() {
-                        scope.push_error(
-                            instance.args[0].0, // report first parameter
-                            format!(
-                                "{} got too many generic arguments ({} given, {} expected)",
-                                target,
-                                generics.len() + instance.args.len(),
-                                generics.len()
-                            ),
-                        );
-                    }
-
-                    for (name, (offset, _)) in instance.nargs {
-                        if generics.get(&name).is_some() {
-                            scope.push_error(
-                                offset,
-                                format!("{} already got generic argument '{}'", target, name),
-                            );
-                        } else {
-                            scope.push_error(
-                                offset,
-                                format!(
-                                    "{} does not accept generic argument named '{}'",
-                                    target, name
-                                ),
-                            );
-                        }
-                    }
-
-                    log::trace!("creating instance from {}", parselet);
-                    for (k, v) in &generics {
-                        log::trace!("  {} => {:?}", k, v);
-                    }
-
-                    // Make a parselet instance from the instance definition;
-                    // This can be the final parselet instance, but constants
-                    // might contain generic references as well, which are being
-                    // resolved during further compilation and derivation.
-                    let parselet = ImlRefParselet::new(ImlParselet {
-                        model: parselet.model.clone(),
-                        generics,
-                        offset: instance.offset,
-                        name: parselet.name.clone(),
-                        severity: instance.severity.unwrap_or(parselet.severity),
-                        is_generated: instance.is_generated,
-                    });
-
-                    log::info!("instance {} created", parselet);
-
-                    return ImlValue::from(parselet);
-                }
-
-                instance.target = Box::new(target);
-                Self::Instance(instance)
             }
             _ => self,
         }
@@ -412,6 +287,11 @@ impl ImlValue {
                 },
                 ImlValue::Value(_) => program.register(self),
                 ImlValue::SelfToken | ImlValue::SelfValue => current.1,
+                ImlValue::Instance(instance) => {
+                    let val = instance.derive(program, current);
+                    println!("yo val = {:?}", val);
+                    program.register(&val)
+                }
                 _ => unreachable!("Can't compile {:?}", self),
             };
 
