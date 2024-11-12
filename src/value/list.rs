@@ -165,7 +165,11 @@ impl List {
         // In case list is not a list, make it a list.
         if !list.is("list") {
             let item = RefValue::from(list.borrow().clone());
-            list = Self::list(vec![item], None)?;
+            if item.is_void() {
+                *(list.borrow_mut()) = Self::list(vec![], None)?.into();
+            } else {
+                *(list.borrow_mut()) = Self::list(vec![item], None)?.into();
+            }
         }
 
         // Extend in-place when possible.
