@@ -2,27 +2,28 @@
 
 use super::*;
 use crate::reader::Offset;
-use crate::value::Parselet;
+use crate::value::ParseletRef;
 use crate::vm::Program;
 use crate::Error;
 use crate::{Object, RefValue};
-use indexmap::{indexmap, IndexMap, IndexSet};
+use indexmap::{indexmap, indexset, IndexMap, IndexSet};
 use log;
-use std::collections::{HashMap, HashSet};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub(in crate::compiler) struct ImlProgram {
-    main: ImlValue,
-    statics: IndexMap<ImlValue, Option<Parselet>>, // static values with optional final parselet replacement
-    errors: Vec<Error>,                            // errors collected during compilation
+    errors: Vec<Error>, // errors collected during compilation
+    statics: IndexSet<Result<RefValue, usize>>,
+    parselets: IndexMap<ImlRefParselet, usize>,
 }
 
 impl ImlProgram {
-    pub fn new(main: ImlValue) -> Self {
+    pub fn new(main: ImlRefParselet) -> Self {
         ImlProgram {
-            main: main.clone(),
-            statics: indexmap!(main => None),
             errors: Vec::new(),
+            statics: indexset![Err(0)],
+            parselets: indexmap![main => 0],
         }
     }
 
@@ -37,25 +38,39 @@ impl ImlProgram {
 
     In case *value* already exists inside of the current statics, the existing index will be returned,
     otherwiese the value is cloned and put into the statics table. */
-    pub fn register(&mut self, value: &ImlValue) -> usize {
+    pub fn register(&mut self, value: &ImlValue) -> Result<usize, ()> {
         match value {
             ImlValue::Shared(value) => return self.register(&*value.borrow()),
-            ImlValue::Parselet(_) | ImlValue::Value(_) => match self.statics.get_index_of(value) {
-                None => return self.statics.insert_full(value.clone(), None).0,
-                Some(idx) => return idx,
+            ImlValue::Parselet(parselet) => match self.parselets.get(parselet) {
+                Some(idx) => Ok(*idx),
+                None => {
+                    let idx = self.statics.insert_full(Err(self.parselets.len() + 1)).0;
+                    self.parselets.insert(parselet.clone(), idx);
+                    Ok(idx)
+                }
             },
-            ImlValue::Variable { offset, name, .. } => self.errors.push(Error::new(
-                offset.clone(),
-                format!("Variable '{}' used in static context", name),
-            )),
+            ImlValue::Value(value) => {
+                let value = Ok(value.clone());
+
+                match self.statics.get_index_of(&value) {
+                    Some(idx) => Ok(idx),
+                    None => Ok(self.statics.insert_full(value).0),
+                }
+            }
+            ImlValue::Variable { offset, name, .. } => {
+                self.errors.push(Error::new(
+                    offset.clone(),
+                    format!("Variable '{}' used in static context", name),
+                ));
+                Err(())
+            }
             ImlValue::Generic { offset, .. } | ImlValue::Instance(ImlInstance { offset, .. }) => {
                 self.errors
                     .push(Error::new(offset.clone(), format!("Unresolved {}", value)));
+                Err(())
             }
             _ => unreachable!(),
         }
-
-        0
     }
 
     /** Turns the ImlProgram and its intermediate values into a final VM program ready for execution.
@@ -65,44 +80,36 @@ impl ImlProgram {
     and nullable parselet detection occurs.
     */
     pub fn compile(mut self) -> Result<Program, Vec<Error>> {
-        log::info!("compiling {}", self.main);
+        log::info!("compiling {}", self.parselets[0]);
 
-        let mut finalize = HashSet::new(); // list of consuming parselets required to be finalized
+        // Loop until end of parselets is reached
+        let mut count = 0;
 
-        // Loop until end of statics is reached
-        let mut idx = 0;
-
-        // self.statics grows inside of this while loop, therefore this condition.
-        while idx < self.statics.len() {
+        // self.parselets grows inside of this while loop, therefore this condition.
+        while count < self.parselets.len() {
             log::trace!(
-                "idx = {: >3}, statics.len() = {: >3}",
-                idx,
-                self.statics.len()
+                "count = {: >3}, parselets.len() = {: >3}",
+                count,
+                self.parselets.len()
             );
 
-            // Pick only intermediate parselets, other static values are directly moved
-            let parselet = match self.statics.get_index_mut(idx).unwrap() {
-                (_, Some(_)) => unreachable!(), // may not exist!
-                (ImlValue::Parselet(parselet), None) => parselet.clone(),
-                _ => {
-                    idx += 1;
-                    continue;
-                }
-            };
-
+            let (parselet, idx) = self
+                .parselets
+                .get_index(count)
+                .map(|(p, idx)| (p.clone(), *idx))
+                .unwrap();
             log::trace!("idx = {: >3}, parselet = {:?}", idx, parselet.borrow().name);
 
-            // Memoize parselets required to be finalized (needs a general rework later...)
-            if parselet.borrow().model.borrow().is_consuming {
-                //fixme...
-                finalize.insert(parselet.clone());
-            }
+            // Compile static VM parselet from intermediate parselet
+            let compiled_parselet = parselet.compile(&mut self, idx);
 
-            // Compile VM parselet from intermediate parselet
-            // println!("...compiling {} {:?}", idx, parselet.name);
-            *self.statics.get_index_mut(idx).unwrap().1 = Some(parselet.compile(&mut self, idx));
+            // Insert new parselet before placeholder...
+            self.statics
+                .insert_before(idx, Ok(RefValue::from(compiled_parselet)));
+            // ...and remove the placeholder.
+            self.statics.shift_remove_index(idx + 1);
 
-            idx += 1;
+            count += 1;
         }
 
         // Stop on any raised error
@@ -111,36 +118,16 @@ impl ImlProgram {
         }
 
         // Finalize parselets
-        log::info!("{} has {} parselets to finalize", self.main, finalize.len());
-
-        for (i, parselet) in finalize.iter().enumerate() {
-            log::trace!(" {: >3} => {:#?}", i, parselet);
-        }
-
-        let leftrec = self.finalize(finalize);
+        self.finalize();
 
         // Assemble all statics to be transferred into a Program
         let statics: Vec<RefValue> = self
             .statics
             .into_iter()
-            .map(|(iml, parselet)| {
-                if let Some(mut parselet) = parselet {
-                    if let ImlValue::Parselet(imlparselet) = iml {
-                        parselet.consuming = leftrec
-                            .get(&imlparselet)
-                            .map_or(None, |leftrec| Some(*leftrec));
-
-                        //println!("{:?} => {:?}", imlparselet.borrow().name, parselet.consuming);
-                    }
-
-                    RefValue::from(parselet)
-                } else {
-                    iml.unwrap()
-                }
-            })
+            .map(|value| value.unwrap())
             .collect();
 
-        log::info!("{} has {} statics compiled", self.main, statics.len());
+        log::info!("{:?} has {} statics compiled", statics[0], statics.len());
 
         for (i, value) in statics.iter().enumerate() {
             log::trace!(" {: >3} : {:#?}", i, value);
@@ -156,11 +143,11 @@ impl ImlProgram {
     - nullable parselets
     - left-recursive parselets
 
-    until no more changes occur.
+    until no more changes to these flag configurations occur.
 
     It can only be run on a previously compiled program without any unresolved usages.
     */
-    fn finalize(&mut self, parselets: HashSet<ImlRefParselet>) -> HashMap<ImlRefParselet, bool> {
+    fn finalize(&mut self) {
         #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
         struct Consumable {
             leftrec: bool,
@@ -172,18 +159,18 @@ impl ImlProgram {
             value: &ImlValue,
             current: &ImlRefParselet,
             visited: &mut IndexSet<ImlRefParselet>,
-            configs: &mut HashMap<ImlRefParselet, Consumable>,
+            configs: &HashMap<ImlRefParselet, RefCell<Consumable>>,
         ) -> Option<Consumable> {
             match value {
                 ImlValue::Shared(value) => {
                     finalize_value(&*value.borrow(), current, visited, configs)
                 }
                 ImlValue::SelfToken => {
-                    configs.get_mut(current).unwrap().leftrec = true;
+                    configs[current].borrow_mut().leftrec = true;
 
                     Some(Consumable {
                         leftrec: true,
-                        nullable: configs[current].nullable,
+                        nullable: configs[current].borrow().nullable,
                     })
                 }
                 ImlValue::Parselet(parselet) => {
@@ -221,7 +208,7 @@ impl ImlProgram {
             op: &ImlOp,
             current: &ImlRefParselet,
             visited: &mut IndexSet<ImlRefParselet>,
-            configs: &mut HashMap<ImlRefParselet, Consumable>,
+            configs: &HashMap<ImlRefParselet, RefCell<Consumable>>,
         ) -> Option<Consumable> {
             match op {
                 ImlOp::Call { target, .. } => finalize_value(target, current, visited, configs),
@@ -318,15 +305,11 @@ impl ImlProgram {
         fn finalize_parselet(
             current: &ImlRefParselet,
             visited: &mut IndexSet<ImlRefParselet>,
-            configs: &mut HashMap<ImlRefParselet, Consumable>,
+            configs: &HashMap<ImlRefParselet, RefCell<Consumable>>,
         ) -> Option<Consumable> {
             // ... only if it's generally flagged to be consuming.
             let parselet = current.borrow();
             let model = parselet.model.borrow();
-
-            if !model.is_consuming {
-                return None;
-            }
 
             //println!("- {}{}", ".".repeat(visited.len()), current);
 
@@ -335,12 +318,12 @@ impl ImlProgram {
                 Some(Consumable {
                     // If the idx is 0, current is the seeked parselet, so it is left-recursive
                     leftrec: if idx == 0 && !current.borrow().is_generated {
-                        configs.get_mut(current).unwrap().leftrec = true;
+                        configs[current].borrow_mut().leftrec = true;
                         true
                     } else {
                         false
                     },
-                    nullable: configs[current].nullable,
+                    nullable: configs[current].borrow().nullable,
                 })
             } else {
                 // If not already visited, add and recurse.
@@ -354,52 +337,65 @@ impl ImlProgram {
 
                 Some(Consumable {
                     leftrec: false,
-                    nullable: configs[current].nullable,
+                    nullable: configs[current].borrow().nullable,
                 })
             }
         }
 
-        log::trace!(
-            "{} has {} parselets to finalize",
-            self.statics.keys()[0],
-            parselets.len()
-        );
-
-        // Now, start the closure algorithm with left-recursive and nullable configurations for all parselets
-        // put into the finalize list.
+        // Now, start the closure algorithm with left-recursive and nullable configurations
+        // for all consumable parselets.
         let mut changes = true;
-        let mut configs = parselets
-            .iter()
+        let configs: HashMap<ImlRefParselet, RefCell<Consumable>> = self
+            .parselets
+            .keys()
+            .filter(|k| k.borrow().model.borrow().is_consuming)
             .map(|k| {
                 (
                     k.clone(),
-                    Consumable {
+                    RefCell::new(Consumable {
                         leftrec: false,
                         nullable: false,
-                    },
+                    }),
                 )
             })
             .collect();
 
+        log::info!(
+            "{:?} has {} parselets to finalize",
+            self.statics[0],
+            configs.len()
+        );
+
+        for (i, parselet) in configs.keys().enumerate() {
+            log::trace!(" {: >3} => {:#?}", i, parselet);
+        }
+
         while changes {
             changes = false;
 
-            for parselet in &parselets {
-                let result = finalize_parselet(parselet, &mut IndexSet::new(), &mut configs);
-                changes = result > configs.get(parselet).cloned();
+            for parselet in configs.keys() {
+                if let Some(result) = finalize_parselet(parselet, &mut IndexSet::new(), &configs) {
+                    changes = result > *configs[parselet].borrow();
+                }
             }
         }
 
-        for parselet in &parselets {
-            log::trace!(" {:?} consuming={:?}", parselet, configs[&parselet]);
+        // set left recursion flags
+        for (parselet, config) in configs {
+            // get compiled parselet from statics
+            let parselet = self.statics[self.parselets[&parselet]].as_ref().unwrap();
+
+            if let Some(parselet) = parselet.borrow().object::<ParseletRef>() {
+                parselet.0.borrow_mut().consuming = Some(config.borrow().leftrec);
+            }
+
+            log::trace!(" {:?} consuming={:?}", parselet, config);
         }
 
         log::debug!(
-            "{} has {} parselets finalized",
-            self.statics.keys()[0],
-            parselets.len()
+            "{:?} has {} parselets finalized",
+            self.statics[0],
+            self.parselets.len()
         );
-
-        configs.into_iter().map(|(k, v)| (k, v.leftrec)).collect()
     }
 }

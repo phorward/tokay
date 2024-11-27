@@ -98,3 +98,59 @@ Number : Float | Int
 
 # Parse any token, which is just no whitespace in default terms.
 Token : AsciiPunctuation | Word | Number
+
+# Functions
+
+# Calculates the maximum of a value.
+#
+# In case the provided value is not an iterator,
+# it will be turned into an iterator with just
+# its own value.
+max : @value {
+    iter(value).max
+}
+
+# Calculates the minimum of a value.
+#
+# In case the provided value is not an iterator,
+# it will be turned into an iterator with just
+# its own value.
+min : @value {
+    iter(value).min
+}
+
+# Calculates the sum of a value.
+#
+# In case the provided value is not an iterator,
+# it will be turned into an iterator with just
+# its own value.
+sum : @value {
+    res = void
+
+    for i in value {
+        res += i
+    }
+
+    res
+}
+
+# Calculates the average of a value.
+#
+# In case the provided value is not an iterator,
+# it will be turned into an iterator with just
+# its own value.
+avg : @value {
+    res = void
+    cnt = 0
+
+    for i in value {
+        res += i
+        cnt++
+    }
+
+    # TODO: Facilities for type checking divisable types must be improved!
+    if !cnt || (type(res) != "int" && type(res) != "float" && type(res) != "bool" && type(res) != "null")
+        return void
+
+    res / cnt
+}

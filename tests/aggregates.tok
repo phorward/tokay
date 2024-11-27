@@ -1,0 +1,76 @@
+#testmode:repl
+# Aggregate Functions
+
+# aggregate with list of integers
+l = list(range(10))
+
+min(l)
+max(l)
+sum(l)
+avg(l)
+
+# aggregate with list of mixed float/int
+l = 1, 23.5, 42, 3.1415
+
+min(l)
+max(l)
+sum(l)
+avg(l)
+
+# aggregate with single value
+min(42)
+max(42)
+sum(42)
+avg(42)
+
+# aggregate with void
+print(type(min(void)))
+print(type(max(void)))
+print(type(sum(void)))
+print(type(avg(void)))
+
+# special cases
+
+## aggregate str
+
+s = "Hello"
+min(s)
+max(s)
+sum(s)
+print(type(avg(s)))  # should be void
+
+## aggrgate list of list, or mixed
+sum(((1,2),3))
+sum((1,(2,3)))
+sum(((1,2),(3,4)))
+
+#---
+
+#0
+#9
+#45
+#4.5
+
+#1
+#42
+#69.6415
+#17.410375
+
+#42
+#42
+#42
+#42
+
+#void
+#void
+#void
+#void
+
+#"H"
+#"o"
+#"Hello"
+#void
+
+#(1, 2, 3)
+#(1, 2, 3)
+#(1, 2, 3, 4)

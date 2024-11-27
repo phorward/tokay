@@ -148,7 +148,7 @@ impl Compiler {
             println!("--- Intermediate main ---\n{:#?}", main_parselet);
         }
 
-        let program = ImlProgram::new(ImlValue::from(main_parselet));
+        let program = ImlProgram::new(main_parselet);
 
         match program.compile() {
             Ok(program) => {

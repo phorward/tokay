@@ -144,7 +144,7 @@ impl RefValue {
                         },
 
                         // Int inline fast-lane
-                        (Value::Int(int), _) => match op {
+                        (Value::Int(int), no_float) if !no_float.is("float") => match op {
                             "iadd" => {
                                 *int += that.to_i64()?;
                                 return Ok(self.clone());

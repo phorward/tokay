@@ -49,7 +49,7 @@ impl Iter {
 
     tokay_method!("iter : @value", {
         // If parameter is already an iterator, just return it
-        if value.is("iter") || value.is_void() {
+        if value.is("iter") {
             Ok(value)
         }
         // Check for an available iter() method on the provided value first
@@ -91,6 +91,26 @@ impl Iter {
                 1
             },
         ))
+    });
+
+    tokay_method!("iter_max : @iter", {
+        let mut borrowed_iter = iter.borrow_mut();
+
+        if let Some(iter) = borrowed_iter.object_mut::<Iter>() {
+            Ok(iter.max().unwrap_or(RefValue::from(Value::Void)))
+        } else {
+            Ok(iter.clone())
+        }
+    });
+
+    tokay_method!("iter_min : @iter", {
+        let mut borrowed_iter = iter.borrow_mut();
+
+        if let Some(iter) = borrowed_iter.object_mut::<Iter>() {
+            Ok(iter.min().unwrap_or(RefValue::from(Value::Void)))
+        } else {
+            Ok(iter.clone())
+        }
     });
 
     tokay_method!("iter_rev : @iter", {

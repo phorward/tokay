@@ -39,14 +39,15 @@ This section contains some useful information for Tokay maintenance.
 This repository holds all required source files to provide Tokay with examples.
 
 ```
-.                  # Build scripts, Cargo.toml, etc.
+.                  # Cargo.toml, README.md, LICENSE, etc.
+├── build          # Build scripts to generate parts of Tokay using Tokay itself
 ├── examples       # Example programs
 ├── macros         # Source of the tokay-macros crate required for building
 ├── src            # Tokay's source code
 │   ├── compiler   # Compiler source
 │   ├── value      # Object system source
 │   └── vm         # Virtual machine source
-└── tests          # Some use-case examples required by the test suite
+└── tests          # Part of the test suite with plenty of Tokay test cases
 ```
 
 ## Releasing a version

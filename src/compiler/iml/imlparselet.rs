@@ -315,7 +315,7 @@ impl ImlRefParselet {
                         var_value
                             .1
                             .as_ref()
-                            .and_then(|value| Some(program.register(value))),
+                            .and_then(|value| Some(program.register(value).unwrap_or_default())),
                     )
                 })
                 .collect(),

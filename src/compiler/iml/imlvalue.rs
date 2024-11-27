@@ -279,13 +279,13 @@ impl ImlValue {
             // Register new static
             let idx = match self {
                 ImlValue::Parselet(parselet) => match parselet.derive(current.0) {
-                    Ok(parselet) => program.register(&ImlValue::Parselet(parselet)),
+                    Ok(parselet) => program.register(&ImlValue::Parselet(parselet)).unwrap(),
                     Err(msg) => {
                         program.push_error(offset.clone(), msg);
                         return;
                     }
                 },
-                ImlValue::Value(_) => program.register(self),
+                ImlValue::Value(_) => program.register(self).unwrap(),
                 ImlValue::SelfToken | ImlValue::SelfValue => current.1,
                 ImlValue::Instance(instance) => {
                     let val = instance.derive(program, current);
