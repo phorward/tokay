@@ -5,7 +5,6 @@ use crate::utils;
 use indexmap::IndexMap;
 use log;
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::compiler) struct ImlInstance {
     pub offset: Option<Offset>,                              // Source offset
@@ -18,7 +17,7 @@ pub(in crate::compiler) struct ImlInstance {
 
 impl ImlInstance {
     pub fn derive(&self, program: &mut ImlProgram, current: (&ImlRefParselet, usize)) -> ImlValue {
-        let mut instance = self.clone();  // FIXME: Temporary!
+        let mut instance = self.clone(); // FIXME: Temporary!
 
         if let ImlValue::Parselet(parselet) = &*instance.target {
             let parselet = parselet.borrow();
@@ -49,7 +48,7 @@ impl ImlInstance {
                                 format!(
                                     "Cannot assign consumable {} to non-consumable generic '{}'",
                                     value, name
-                                )
+                                ),
                             );
                         }
                     } else if utils::identifier_is_consumable(name) {
@@ -58,14 +57,11 @@ impl ImlInstance {
                             format!(
                                 "Cannot assign non-consumable {} to consumable generic {} of {}",
                                 value, name, parselet
-                            )
+                            ),
                         );
                     }
                 } else {
-                    program.push_error(
-                        arg.0,
-                        format!("Expecting argument for generic '{}'", name),
-                    );
+                    program.push_error(arg.0, format!("Expecting argument for generic '{}'", name));
                 }
 
                 generics.insert(name.clone(), arg.1);
@@ -88,7 +84,10 @@ impl ImlInstance {
                 if generics.get(&name).is_some() {
                     program.push_error(
                         offset,
-                        format!("{} already got generic argument '{}'", instance.target, name),
+                        format!(
+                            "{} already got generic argument '{}'",
+                            instance.target, name
+                        ),
                     );
                 } else {
                     program.push_error(

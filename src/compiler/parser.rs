@@ -8843,6 +8843,7 @@ impl Parser {
         ;
 
         let mut compiler = Compiler::new();
+        compiler.is_bootstrap = true;
         compiler.debug = 0; // unset debug always
 
         Self(

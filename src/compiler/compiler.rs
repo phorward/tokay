@@ -21,7 +21,8 @@ won't be removed and can be accessed on later calls.
 pub struct Compiler {
     parser: Option<parser::Parser>, // Internal Tokay parser
     pub debug: u8,                  // Compiler debug mode
-    pub(super) restrict: bool,      // Restrict assignment of reserved identifiers
+    pub is_bootstrap: bool,
+    pub(super) restrict: bool, // Restrict assignment of reserved identifiers
     pub(super) statics: RefCell<IndexSet<RefValue>>, // Static values collected during compilation
 
     // TODO: As workaround to emulate old behavior of the Compiler struct
@@ -54,6 +55,7 @@ impl Compiler {
         let mut compiler = Self {
             parser: None,
             debug: 0,
+            is_bootstrap: false,
             restrict: true,
             statics: RefCell::new(statics),
             // TODO: workaround...
