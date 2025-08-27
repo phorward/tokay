@@ -48,7 +48,7 @@ Repeat : @<
 
     loop {
         P {
-            res.push($1)
+            res.push($1)  # explicit push!
             cnt += 1
             if max && cnt == max break
         }
@@ -85,12 +85,12 @@ Opt : @<P>{ P | Empty }
 List : @<P, Separator: (',' _), empty: true> {
     Self Separator P   $1 + $3
     if empty (Self Separator)   # allows for trailing Separator
-    P  ($1, )
+    P  $1,
 }
 
 # Parse keywords, which may not be the prefix of another identifier.
 Keyword : @<P> {
-    P Not<Alphanumeric>
+    P Not<(Alphanumeric | '_')>
 }
 
 # Parses any number, either Float or Int.

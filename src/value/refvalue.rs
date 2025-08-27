@@ -41,6 +41,7 @@ impl RefValue {
         name: &str,
         context: Option<&mut Context>,
         mut args: Vec<RefValue>,
+        nargs: Option<Dict>,
     ) -> Result<Option<RefValue>, String> {
         let builtin = Builtin::get_method(self.name(), name)?;
 
@@ -48,7 +49,7 @@ impl RefValue {
         args.insert(0, self.clone());
 
         // Call the builtin directly.
-        builtin.call(context, args)
+        builtin.call(context, args, nargs)
     }
 
     pub fn unary_op(self, op: &str) -> Result<RefValue, String> {
@@ -94,7 +95,7 @@ impl RefValue {
         };
 
         match Builtin::get_method(name, op) {
-            Ok(builtin) => Ok(builtin.call(None, vec![self])?.unwrap()),
+            Ok(builtin) => Ok(builtin.call(None, vec![self], None)?.unwrap()),
             Err(notfound) => match op {
                 // default fallback for not
                 "not" => Ok(value!(!self.is_true())),
@@ -279,8 +280,8 @@ impl RefValue {
             match Builtin::get_method(name, op) {
                 Ok(builtin) => {
                     return Ok(builtin
-                        .call(None, vec![self, operand.ref_or_copy()])?
-                        .unwrap())
+                        .call(None, vec![self, operand.ref_or_copy()], None)?
+                        .unwrap());
                 }
                 // default "inline" operation is the non-inline operation assigning the result to itself
                 Err(_) if op.starts_with("i") => {}
@@ -288,7 +289,7 @@ impl RefValue {
             }
         }
 
-        // Perform expensive inline operation
+        // Otherwise, perform expensive inline operation
         assert!(op.starts_with("i"));
         let res = self.clone().binary_op(operand, &op[1..])?;
         *self.borrow_mut() = res.into();
@@ -453,7 +454,7 @@ impl std::fmt::Display for RefValue {
 
 impl std::fmt::Debug for RefValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.borrow().fmt(f)
+        write!(f, "{}", self.repr())
     }
 }
 
@@ -479,5 +480,28 @@ impl From<BoxedObject> for RefValue {
         RefValue {
             value: Rc::new(RefCell::new(Value::Object(value))),
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for RefValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.value.borrow().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for RefValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        Ok(RefValue {
+            value: Rc::new(RefCell::new(value)),
+        })
     }
 }

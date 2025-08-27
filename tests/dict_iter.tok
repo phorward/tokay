@@ -1,0 +1,49 @@
+#testmode:repl
+
+d = (a => 1  b => 2)
+
+# iter / values
+
+list(iter(d))
+list(d.values)
+d.values(0)
+d.values(1)
+type(d.values(2))
+d.values(2, default="Esel")
+
+# keys
+
+list(d.keys)
+d.keys(0)
+d.keys(1)
+type(d.keys(2))
+d.keys(2, default="Esel")
+
+# items
+
+list(d.items)
+d.items(0)
+d.items(1)
+type(d.items(2))
+d.items(2, default="Esel")
+
+#---
+
+#(1, 2)
+#(1, 2)
+#1
+#2
+#"void"
+#"Esel"
+
+#("a", "b")
+#"a"
+#"b"
+#"void"
+#"Esel"
+
+#(("a", 1), ("b", 2))
+#("a", 1)
+#("b", 2)
+#"void"
+#"Esel"

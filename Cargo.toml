@@ -1,43 +1,67 @@
 [package]
 name = "tokay"
-version = "0.6.7"
+version = "0.6.13"
 description = "Tokay is a programming language designed for ad-hoc parsing."
-authors = [
-    "Jan Max Meyer <jmm@phorward.de>"
-]
+authors = ["Jan Max Meyer <jmm@phorward.de>"]
 homepage = "https://tokay.dev/"
 repository = "https://github.com/tokay-lang/tokay/"
 license = "MIT"
-edition = "2021"
+edition = "2024"
 categories = [
     "parsing",
     "compilers",
     "command-line-utilities",
-    "development-tools"
+    "development-tools",
 ]
-keywords = [
-    "awk",
-    "dsl",
-    "packrat",
-    "parser",
-    "vm"
-]
+keywords = ["awk", "dsl", "packrat", "parser", "vm"]
 
 [features]
-default = ["static_expression_evaluation"]
-static_expression_evaluation = []  # Evaluates static expressions like 1+2+3 during compile-time to reduce resulting operations
+default = [
+    "cli",
+    "static_expression_evaluation",
+    "use_cbor_parser",
+]
+
+# Compile with a command-line interface (including REPL)
+cli = ["clap", "env_logger", "rustyline"]
+
+# Serde
+serde = [
+    "dep:serde",
+    "charclass/serde",
+    "indexmap/serde",
+    "num-bigint/serde",
+]
+
+# Compile with CBOR features
+cbor = ["serde", "dep:serde_cbor"]
+
+# Evaluates static expressions like 1+2+3 directly to 6
+# during compile-time to reduce resulting operations
+static_expression_evaluation = []
+
+# Use pre-compiled CBOR parser
+use_cbor_parser = ["cbor"]
 
 [dependencies]
-charclass = "0.2"  # use crates.io-version
-# charclass = { version = "0.2", path = "../charclass" }  # use local version
-clap = { version = "4.5", features = ["derive"] }
-env_logger = "0.11"
-indexmap = "2.6"
+charclass = "0.3"  # use crates.io-version
+# charclass = { version = "0.3", path = "../charclass" } # use local version
+indexmap = { version = "2.6" }
 log = { version = "0.4", features = ["release_max_level_warn"] }
 num = "0.4"
 num-bigint = "0.4"
 num-parse = "0.1"  # use crates.io-version
 # num-parse = { version = "0.1", path = "../num-parse" }  # use local version
-rustyline = "15.0"
-tokay-macros = "0.5"  # use crates.io-version
+tokay-macros = "0.5" # use crates.io-version
 # tokay-macros = { version = "0.5", path = "macros" }  # use local version
+
+# dependencies for "cli"
+clap = { version = "4.5", features = ["derive"], optional = true }
+env_logger = { version = "0.11", optional = true }
+rustyline = { version = "15.0", optional = true }
+
+# dependencies for "serde"
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+# dependencies for "use_cbor_parser"
+serde_cbor = { version = "0.11", optional = true }

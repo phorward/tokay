@@ -19,7 +19,8 @@
 
 # Tokay
 
-Tokay is a programming language designed for ad-hoc parsing.
+Tokay is a programming language, designed for ad-hoc parsing and syntax-driven development.
+
 
 > [!IMPORTANT]
 > Tokay is under development and not considered for production use yet.
@@ -28,13 +29,15 @@ Tokay is a programming language designed for ad-hoc parsing.
 
 ## About
 
-Tokay is intended to become a programming language that can be used to quickly implement solutions for text processing problems. This can involve either simple data extractions, but also the parsing of syntactical structures or parts thereof and the conversion of information into structured parse trees or abstract syntax trees for further processing.
+Tokay is a programming language that can be used to quickly implement solutions for text processing problems. This can involve either simple data extractions, but also the parsing of syntactical structures or parts thereof and the conversion of information into structured parse trees or abstract syntax trees for additional processing.
 
-Therefore, Tokay is becoming not only a practical tool for simple one-liners like matchers or recognizers, but also a language that can be used to implement code analyzers, refactoring tools, interpreters, compilers or transpilers. Actually [Tokay's own language parser](src/compiler/tokay.tok) is implemented in Tokay itself.
+Therefore, Tokay is not only a practical tool for simple one-liners like matchers or recognizers, but also a language that can be used to implement code analyzers, refactoring tools, interpreters, compilers or transpilers. Actually [Tokay's own language parser](src/compiler/tokay.tok) is implemented in Tokay itself.
 
-Tokay is inspired by [awk](https://en.wikipedia.org/wiki/AWK), has syntactic and semantic flavours from [Python](https://www.python.org/) and [Rust](https://www.rust-lang.org/), but also follows its own philosophy, ideas and design principles. Thus, Tokay isn't directly compareable to other languages or projects, and stands on its own. It's an entirely new programming language.
+Tokay is inspired by [awk](https://en.wikipedia.org/wiki/AWK), has syntactic and semantic flavours from [Python](https://www.python.org/) and [Rust](https://www.rust-lang.org/), but also follows its own philosophy, ideas and design principles. Thus, Tokay isn't directly compareable to other languages or projects, and stands on its own. It's an entirely new programming language in its own niche.
 
-Tokay is still a very young project and gains much potential. [Volunteers are welcome!](CONTRIBUTING.md)
+Tokay is still a very young project and gains much potential. Currently, development is going towards generic parselets (a speciality of Tokay) and a [WebAssembly-based development environment](https://github.com/tokay-lang/tokay-wasm).
+
+[Volunteers are welcome!](CONTRIBUTING.md)
 
 ## Highlights
 
@@ -46,7 +49,7 @@ Tokay is still a very young project and gains much potential. [Volunteers are we
 - Implements a memoizing packrat parsing algorithm internally
 - Robust and fast, as it is written entirely in safe [Rust](https://rust-lang.org)
 - Enabling awk-style one-liners in combination with other tools
-- Generic parselets and functions
+- Generic parselets and functions (*partly implemented)
 - Import system to create modularized programs (*coming soon)
 - Embedded interoperability with other programs (*coming soon)
 
@@ -180,6 +183,65 @@ Int print($1, "=>", fibonacci($1))
 
 The Tokay homepage [tokay.dev](https://tokay.dev) provides links to a quick start and documentation. The documentation source code is maintained in a [separate repository](https://github.com/tokay-lang/tokay-docs).
 
+## Building
+
+To build Tokay, use Rust's standard build tool `cargo`:
+
+```bash
+# for debugging
+$ cargo run -- PARAMS... -- INPUTS...
+
+# for debug build
+$ cargo build
+
+# for optimized release-build
+$ cargo build --release
+```
+
+Additionally, parts of Tokay's source code are generated using a `Makefile`-based tooling, which is described below.
+
+### Build features
+
+Tokay can be built with the following features. Features marked with `(*)` are default features.
+
+- `cbor` (*): Serialize and deserialize VM-programs into and from CBOR binaries (includes `serde`)
+- `cli` (*): Command-line interface (main.rs)
+- `serde`: General `serde` features
+- `static_expression_evaluation` (*): Evaluates static expressions like `1 + 2 + 3` directly to static value 6 during compile-time to reduce amount of resulting operations
+- `use_cbor_parser` (*): Compiles Tokay with integrated binary-encoded CBOR parser for faster compile times (includes `serde` and `cbor`)
+
+### `make builtins` - update Tokay's builtin registry from the Rust sources
+
+Generate the file `src/_builtins.rs` using `src/_builtins.tok`.
+
+- `make builtins` updates the content of `src/_builtins.rs` using `src/_builtins.tok` from the Rust sources.
+- `make show-builtins` dumps what would be generated by `make builtins`
+- `make reset-builtins` resets `src/_builtins.rs` from git, if something went wrong.
+
+### `make parser-cbor` / `make parser-ast` - update Tokay's parser from `tokay.tok`
+
+Tokay uses a program written in itself (`src/compiler/tokay.tok`) to generate its own language parser (used by `src/compiler/parser.rs`) incrementally.
+
+There are currently two parser implementations, the CBOR-based pre-compiled Tokay parser is used as the default.
+
+- `make parser-cbor` updates the content of `src/compiler/_tokay.cbor` from `src/compiler/tokay.tok`.
+- `make reset-parser-cbor` resets `src/compiler/_tokay.cbor` from git, if something went wrong.
+
+The old AST-based parser that is compiled internally into a Tokay VM program is still be supported.<br>
+In the end, both parsers implement exactly the same program.
+
+- `make parser-ast` updates the content of `src/compiler/_tokay.rs` from `src/compiler/tokay.tok`.
+- `make show-parser-ast` dumps what would be generated by `make parser-ast`
+- `make reset-parser-ast` resets `src/compiler/_tokay.rs` from git, if something went wrong.
+
+### `make prelude` - update Tokay's prelude from `prelude.tok`
+
+Tokay needs the prelude to provide general language features and defaults.
+
+- `make prelude` updates the content of `src/compiler/prelude.rs` from `src/prelude.tok`.
+- `make show-prelude` dumps what would be generated by `make prelude`
+- `make reset-prelude` resets `src/compiler/prelude.rs` from git, if something went wrong.
+
 ## Debugging
 
 For debugging, there are two methods to use.
@@ -192,15 +254,9 @@ For Rust standard trace, use the [`env_logger` facilities](https://docs.rs/env_l
 $ RUST_LOG=tokay=debug tokay
 ```
 
-Alternatively, tracing can be activated for the `__main__`-program by setting `TOKAY_LOG`. This is used to start tracing when the internal parser has been compiled and executed already, and parsed the actual program. `TOKAY_LOG` can be set to any `RUST_LOG`-compliant format, as it becomes `RUST_LOG` right after.
-
-```
-$ TOKAY_LOG=debug tokay
-```
-
 ### Built-in AST and VM debugger using `TOKAY_DEBUG` and `TOKAY_PARSER_DEBUG`
 
-Set `TOKAY_DEBUG` to a debug level between 1-6. This can also be achieved using `tokay -dddd` where every `d` increments the debug level. Additionally, `TOKAY_INSPECT` can be set to one or a list of parselet name (-prefixes) which should be inspected in VM step-by-step trace (`TOKAY_DEBUG=6`).
+Set `TOKAY_DEBUG` to a debug level between 1-6. Additionally, `TOKAY_INSPECT` can be set to one or a list of parselet name (-prefixes) which should be inspected in VM step-by-step trace (`TOKAY_DEBUG=6`).
 
 | Level | Mode                              |
 | ----- | --------------------------------- |
@@ -215,7 +271,7 @@ Set `TOKAY_DEBUG` to a debug level between 1-6. This can also be achieved using 
 View the parsed AST of a program in debug-level 1:
 
 > ```
-> $ cargo run -q -- -d 'x = 42 print("Hello World " + x)'
+> `$ TOKAY_DEBUG=1 cargo run -q -- 'x = 42 print("Hello World " + x)'`
 > main [start 1:1, end 1:33]
 >  sequence [start 1:1, end 1:33]
 >   assign_drop [start 1:1, end 1:8]
@@ -228,6 +284,7 @@ View the parsed AST of a program in debug-level 1:
 >     op_binary_add [start 1:14, end 1:32]
 >      value_string [start 1:14, end 1:28] => "Hello World "
 >      identifier [start 1:31, end 1:32] => "x"
+> Hello World 42
 > ```
 
 `TOKAY_PARSER_DEBUG` sets the specific debug level for the parser, which is implemented in Tokay itself and is part of the compiler. Only levels > 2 can be recognized here, as the AST of the parser is built into the code.
@@ -278,7 +335,7 @@ Check out the [tokay-artwork](https://github.com/tokay-lang/tokay-artwork) repos
 
 ## License
 
-Copyright © 2024 by Jan Max Meyer, Phorward Software Technologies.
+Copyright © 2025 by Jan Max Meyer, Phorward Software Technologies.
 
 Tokay is free software under the MIT license.<br>
 Please see the LICENSE file for details.

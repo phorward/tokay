@@ -1,21 +1,22 @@
 #testmode:repl
 
 l = (1,2,3,4); l.pop() l.pop(1)
+
 l = (1,2,3,4)
 l.pop(0)
 l.pop()
-l.pop(2)
+type(l.pop(2))
 l
 
 list_pop(1)
-list_pop(1, 1)
+type(list_pop(1, 1))
 
 #---
 
 #(4, 2)
 #1
 #4
-#ERR:Line 1, column 3: list_pop() provided index 2 out of range of list sized 2
+#"void"
 #(2, 3)
 #1
-#ERR:Line 1, column 1: list_pop() provided index 1 out of range
+#"void"

@@ -12,7 +12,7 @@ impl Compiler {
     pub(super) fn load_prelude(&mut self) {
         // fixme: Make this lazy_static, so its created only once!
         let ast =
-            /*GENERATE cargo run -- "`sed 's/ast("main")/ast2rust(ast("main"), level=3)/g' compiler/tokay.tok`" -- prelude.tok */
+            /*GENERATE cargo run -- "`sed 's/ast("main")/ast2rust(ast("main"), level=3)/g' src/compiler/tokay.tok`" -- src/prelude.tok */
             value!([
                 "emit" => "main",
                 "children" =>
@@ -1070,8 +1070,18 @@ impl Compiler {
                                                                                     "emit" => "instarg",
                                                                                     "children" =>
                                                                                         (value!([
-                                                                                            "emit" => "identifier",
-                                                                                            "value" => "Alphanumeric"
+                                                                                            "emit" => "block",
+                                                                                            "children" =>
+                                                                                                (value!([
+                                                                                                    (value!([
+                                                                                                        "emit" => "identifier",
+                                                                                                        "value" => "Alphanumeric"
+                                                                                                    ])),
+                                                                                                    (value!([
+                                                                                                        "emit" => "value_token_touch",
+                                                                                                        "value" => "_"
+                                                                                                    ]))
+                                                                                                ]))
                                                                                         ]))
                                                                                 ]))
                                                                             ]))
@@ -1657,12 +1667,8 @@ impl Compiler {
             /*ETARENEG*/
         ;
 
-        self.is_bootstrap = true;
-        self.restrict = false;
         self.compile_from_ast(&ast, Some("prelude".to_string()))
             .expect("prelude cannot be compiled!")
             .expect("prelude contains no main?");
-        self.restrict = true;
-        self.is_bootstrap = false;
     }
 }

@@ -92,13 +92,6 @@ impl ImlValue {
                 scope.usages.borrow_mut().push(shared.clone());
                 shared
             }
-            // FIXME: OLD INSTANCE!
-            Self::Instance { .. } if scope.compiler.is_bootstrap => {
-                log::trace!("Inserting new shared usage into scope");
-                let shared = Self::Shared(Rc::new(RefCell::new(self)));
-                scope.usages.borrow_mut().push(shared.clone());
-                shared
-            }
             Self::Shared(_) => {
                 log::trace!("Re-inserting shared usage into scope (remains unresolved)");
                 scope.usages.borrow_mut().push(self.clone());
@@ -142,7 +135,7 @@ impl ImlValue {
                 found.unwrap_or(self)
             }
             // FIXME: NEW INSTANCE (remove bootstrap check when working)
-            Self::Instance(mut instance) if !scope.compiler.is_bootstrap => {
+            Self::Instance(mut instance) => {
                 log::trace!("resolving instance");
                 log::trace!("  target = {:?}", instance.target);
                 log::trace!("  args = {:?}", instance.args);
@@ -161,117 +154,6 @@ impl ImlValue {
                     .collect();
 
                 ImlValue::Instance(instance)
-            }
-            // FIXME: OLD INSTANCE IS RESOLVED TO IMLPARSELET HERE
-            Self::Instance(mut instance) => {
-                let target = instance.target.resolve(scope);
-
-                if let ImlValue::Parselet(parselet) = &target {
-                    let parselet = parselet.borrow();
-                    let mut generics = IndexMap::new();
-
-                    // Map args and nargs to generics of this parselet
-                    for (name, default) in parselet.generics.iter() {
-                        // Take arguments by sequence first
-                        let arg = if !instance.args.is_empty() {
-                            let arg = instance.args.remove(0);
-                            (arg.0, Some(arg.1.resolve(scope)))
-                        }
-                        // Otherwise, take named arguments
-                        else if let Some(narg) = instance.nargs.shift_remove(name) {
-                            (narg.0, Some(narg.1.resolve(scope)))
-                        }
-                        // Otherwise, use default
-                        else {
-                            (instance.offset.clone(), default.clone())
-                        };
-
-                        // Check integrity of constant names
-                        if let (offset, Some(value)) = &arg {
-                            if value.is_consuming() {
-                                if !utils::identifier_is_consumable(name) {
-                                    scope.push_error(
-                                        *offset,
-                                        format!(
-                                            "Cannot assign consumable {} to non-consumable generic '{}'",
-                                            value, name
-                                        )
-                                    );
-                                }
-                            } else if utils::identifier_is_consumable(name) {
-                                scope.push_error(
-                                    *offset,
-                                    format!(
-                                        "Cannot assign non-consumable {} to consumable generic {} of {}",
-                                        value, name, parselet
-                                    )
-                                );
-                            }
-                        } else {
-                            scope.push_error(
-                                arg.0,
-                                format!("Expecting argument for generic '{}'", name),
-                            );
-                        }
-
-                        generics.insert(name.clone(), arg.1);
-                    }
-
-                    // Report any errors for remaining generic arguments.
-                    if !instance.args.is_empty() {
-                        scope.push_error(
-                            instance.args[0].0, // report first parameter
-                            format!(
-                                "{} got too many generic arguments ({} given, {} expected)",
-                                target,
-                                generics.len() + instance.args.len(),
-                                generics.len()
-                            ),
-                        );
-                    }
-
-                    for (name, (offset, _)) in instance.nargs {
-                        if generics.get(&name).is_some() {
-                            scope.push_error(
-                                offset,
-                                format!("{} already got generic argument '{}'", target, name),
-                            );
-                        } else {
-                            scope.push_error(
-                                offset,
-                                format!(
-                                    "{} does not accept generic argument named '{}'",
-                                    target, name
-                                ),
-                            );
-                        }
-                    }
-
-                    log::trace!("creating instance from {}", parselet);
-                    for (k, v) in &generics {
-                        log::trace!("  {} => {:?}", k, v);
-                    }
-
-                    // Make a parselet instance from the instance definition;
-                    // This can be the final parselet instance, but constants
-                    // might contain generic references as well, which are being
-                    // resolved during further compilation and derivation.
-                    let parselet = ImlRefParselet::new(ImlParselet {
-                        model: parselet.model.clone(),
-                        generics,
-                        offset: instance.offset,
-                        name: parselet.name.clone(),
-                        severity: instance.severity.unwrap_or(parselet.severity),
-                        is_generated: instance.is_generated,
-                    });
-
-                    log::info!("instance {} created", parselet);
-
-                    return ImlValue::from(parselet);
-                }
-
-                instance.target = Box::new(target);
-                Self::Instance(instance)
             }
             _ => self,
         }
@@ -342,7 +224,7 @@ impl ImlValue {
         // First, try to push some Op for the value
         let op = match self {
             Self::Shared(value) => {
-                return value.borrow().compile(program, current, offset, call, ops)
+                return value.borrow().compile(program, current, offset, call, ops);
             }
             Self::Generic {
                 name,
@@ -354,7 +236,7 @@ impl ImlValue {
                     &generic_offset.or(*offset),
                     call,
                     ops,
-                )
+                );
             }
             Self::VoidToken => Some(Op::Next),
             Self::Value(value) => match &*value.borrow() {
@@ -501,5 +383,11 @@ impl std::hash::Hash for ImlValue {
 impl From<RefValue> for ImlValue {
     fn from(value: RefValue) -> Self {
         Self::Value(value)
+    }
+}
+
+impl From<Value> for ImlValue {
+    fn from(value: Value) -> Self {
+        Self::from(RefValue::from(value))
     }
 }

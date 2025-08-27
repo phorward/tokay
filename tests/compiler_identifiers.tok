@@ -17,8 +17,17 @@ IsOkay : @{
 
 _ : "abc"
 
+# https://github.com/tokay-lang/tokay/issues/149
+a : 1
+a = 2
+
+b = 3
+b : 4
+
 #---
 #ERR:Line 1, column 1: Cannot assign to constant 'Pi', because it must be consumable. Use an identifier starting in lower-case, e.g. 'pi'
 #ERR:Line 5, column 1: Cannot assign to constant 'cident' as consumable. Use an identifier starting in upper-case, e.g. 'Cident'
 #ERR:Line 12, column 1: Cannot assign to constant 'Factorial', because it must be consumable. Use an identifier starting in lower-case, e.g. 'factorial'
 #ERR:Line 18, column 1: Cannot assign to constant '_', because it must be consumable. Use an identifier not starting with '_'.
+#ERR:Line 22, column 1: Cannot assign to constant 'a'
+#ERR:Line 25, column 1: Cannot assign constant value to variable 'b'

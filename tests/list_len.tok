@@ -1,10 +1,11 @@
 #testmode:repl
 
 list().len
-().len
+(,).len
 (1,).len
 (1, 2, 3).len
 list_len(5)
+list_len(void)
 
 #---
 
@@ -13,3 +14,4 @@ list_len(5)
 #1
 #3
 #1
+#0

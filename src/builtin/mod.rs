@@ -55,9 +55,10 @@ impl Builtin {
         &self,
         context: Option<&mut Context>,
         args: Vec<RefValue>,
+        nargs: Option<Dict>,
     ) -> Result<Option<RefValue>, String> {
         // Call the builtin directly.
-        match (self.func)(context, args, None) {
+        match (self.func)(context, args, nargs) {
             Ok(Accept::Next | Accept::Hold) => Ok(None),
             Ok(Accept::Push(capture)) => Ok(Some(capture.get_value())),
             Err(Reject::Error(error)) => Err(error.message),
@@ -128,6 +129,35 @@ impl std::fmt::Debug for BuiltinRef {
 impl From<&'static Builtin> for RefValue {
     fn from(builtin: &'static Builtin) -> Self {
         Value::Object(Box::new(BuiltinRef(builtin))).into()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::ser::Serialize for BuiltinRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(self.0.name)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::de::Deserialize<'de> for BuiltinRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let name = <&str as serde::de::Deserialize>::deserialize(deserializer)?;
+
+        if let Some(builtin) = Builtin::get(name) {
+            Ok(BuiltinRef(builtin))
+        } else {
+            Err(serde::de::Error::custom(format!(
+                "Builtin named '{}' not found",
+                name
+            )))
+        }
     }
 }
 

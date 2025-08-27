@@ -6,22 +6,36 @@ float(10)
 float("12.34.5")
 float((1, 2))
 
+# variable with method
 f.ceil
 f.trunc
 f.fract
 
+# value with method
 12.5.ceil
 12.5.trunc
 12.5.fract
 
+# Representation and conversion
+f = 1337.
+f
+repr(f)
+str(f)
+int(f)
+
 #---
-#10
+#10.0
 #12.5
-#0
+#0.0
 #ERR:Line 1, column 1: `list` cannot be converted to float
-#13
-#12
+#13.0
+#12.0
 #0.5
-#13
-#12
+#13.0
+#12.0
 #0.5
+
+#1337.0
+#"1337.0"
+#"1337"
+#1337

@@ -6,8 +6,7 @@ use crate::reader::*;
 use crate::value;
 use crate::value::RefValue;
 use crate::vm::*;
-use env_logger;
-use indexmap::{indexset, IndexMap, IndexSet};
+use indexmap::{IndexMap, IndexSet, indexset};
 use log;
 use std::cell::RefCell;
 
@@ -21,8 +20,7 @@ won't be removed and can be accessed on later calls.
 pub struct Compiler {
     parser: Option<parser::Parser>, // Internal Tokay parser
     pub debug: u8,                  // Compiler debug mode
-    pub is_bootstrap: bool,
-    pub(super) restrict: bool, // Restrict assignment of reserved identifiers
+    pub(super) restrict: bool, // Restrict assignment of reserved identifiers (required by prelude bootstrap)
     pub(super) statics: RefCell<IndexSet<RefValue>>, // Static values collected during compilation
 
     // TODO: As workaround to emulate old behavior of the Compiler struct
@@ -36,13 +34,9 @@ impl Compiler {
     The compiler serves functions to compile Tokay source code into programs executable by
     the Tokay VM. It uses an intermediate language representation to implement derives of
     generics, statics, etc.
-
-    The compiler struct serves as some kind of helper that should be used during traversal of a
-    Tokay program's AST. It therefore offers functions to open particular blocks and handle symbols
-    in different levels. Parselets are created by using the parselet_pop() function with provided
-    parameters.
     */
     pub fn new() -> Self {
+        // Always create standard statics; These are referenced during AST traversal.
         let statics = indexset![
             value!(void),
             value!(null),
@@ -52,11 +46,11 @@ impl Compiler {
             value!(1),
         ];
 
+        // Create compiler instance
         let mut compiler = Self {
             parser: None,
             debug: 0,
-            is_bootstrap: false,
-            restrict: true,
+            restrict: false,
             statics: RefCell::new(statics),
             // TODO: workaround...
             main: ImlParseletModel::new(None),
@@ -65,6 +59,7 @@ impl Compiler {
 
         // Compile with the default prelude
         compiler.load_prelude();
+        compiler.restrict = true;
 
         // Set compiler debug level afterwards
         compiler.debug = if let Ok(level) = std::env::var("TOKAY_DEBUG") {
@@ -187,12 +182,6 @@ impl Compiler {
             //println!("###\n{:#?}\n###", ast);
         }
 
-        // When TOKAY_LOG is set, set RUST_LOG to the setting *after* internal compilations
-        if let Ok(log) = std::env::var("TOKAY_LOG") {
-            std::env::set_var("RUST_LOG", log.clone());
-            env_logger::init();
-        }
-
         self.compile_from_ast(&ast, None)
     }
 
@@ -207,7 +196,7 @@ impl Compiler {
     /** Register a static value within a compiler instance.
 
     This avoids that the compiler produces multiple results pointing to effectively the same values
-    (althought they are different objects, but  the same value)
+    (althought they are different objects, but the same value)
     */
     pub(super) fn register_static(&self, value: RefValue) -> ImlValue {
         log::trace!("register_static value = {:?}", value);
@@ -222,5 +211,21 @@ impl Compiler {
             log::trace!("value added to registry");
             ImlValue::Value(value)
         }
+    }
+
+    /** Register a named constant within a compiler instance. */
+    pub fn constant(&mut self, name: &str, value: RefValue) {
+        log::trace!("constant name = {:?} value = {:?}", name, value);
+        self.constants
+            .insert(name.to_string(), ImlValue::from(value));
+    }
+
+    /** Register a global variable with a given value. */
+    pub fn global(&mut self, name: &str, value: RefValue) {
+        log::trace!("global name = {:?} value = {:?}", name, value);
+        self.main
+            .signature
+            .insert(name.to_string(), Some(ImlValue::from(value)));
+        self.main.var(name);
     }
 }

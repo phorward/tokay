@@ -1,0 +1,11 @@
+#testmode:repl
+
+l = ,
+l[2] += 10
+l
+l[2] += 20
+l
+
+#---
+#(null, null, 10)
+#(null, null, 30)

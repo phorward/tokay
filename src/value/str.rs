@@ -8,6 +8,8 @@ use tokay_macros::tokay_method;
 extern crate self as tokay;
 
 #[derive(Clone, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Str {
     string: String,
 }

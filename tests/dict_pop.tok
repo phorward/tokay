@@ -1,0 +1,19 @@
+#testmode:repl
+
+d = ("esel" => 1 "bert" => 2 "edgar" => 42 "klaus" => 23)
+d
+d.pop("franz")
+d.pop("franz", "eugen")
+d.pop("bert")
+d
+d.pop()
+d
+
+#---
+
+#(esel => 1 bert => 2 edgar => 42 klaus => 23)
+#"eugen"
+#2
+#(esel => 1 edgar => 42 klaus => 23)
+#23
+#(esel => 1 edgar => 42)

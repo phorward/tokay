@@ -34,7 +34,7 @@ impl Capture {
     /** Extracts a value from a capture.
 
     In case the capture is a range, the range is extracted as a string from the reader. */
-    pub(crate) fn extract(&mut self, reader: &Reader) -> RefValue {
+    pub fn extract(&mut self, reader: &Reader) -> RefValue {
         match self {
             Capture::Empty => crate::value!(void),
             Capture::Range(range, alias, severity) => {

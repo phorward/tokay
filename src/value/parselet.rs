@@ -1,12 +1,10 @@
 //! Parselet object represents a callable, user-defined function.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use super::{BoxedObject, Dict, Object, RefValue};
-
 use crate::error::Error;
 use crate::vm::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /** Parselet is the conceptual building block of a Tokay program.
 
@@ -22,6 +20,7 @@ the generated parse tree automatically until no more input can be consumed.
 */
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Parselet {
     pub name: String,                   // Parselet's name from source (for debugging)
     pub(crate) consuming: Option<bool>, // Indicator for consuming & left-recursion
@@ -97,10 +96,6 @@ impl Parselet {
             }
         }
 
-        if main {
-            assert!(self.signature.is_empty());
-        }
-
         let args_len = args.len();
 
         // Check for provided argument count bounds first
@@ -127,64 +122,72 @@ impl Parselet {
         }
 
         if main {
-            // Initialize global variables
+            for global in &self.signature {
+                if let Some(addr) = global.1 {
+                    thread.globals.push(thread.program.statics[addr].clone())
+                } else {
+                    thread.globals.push(crate::value!(void));
+                }
+            }
+
+            // Initialize remaining global variables
             thread
                 .globals
                 .resize_with(self.locals, || crate::value!(void));
         } else {
             // Initialize local variables
             args.resize(self.locals, Capture::Empty);
-        }
 
-        // Set remaining parameters to their defaults
-        for (i, arg) in (&self.signature[args_len..]).iter().enumerate() {
-            // args parameters are previously pushed onto the stack.
-            let var = &mut args[args_len + i];
+            // Set remaining parameters to their defaults
+            for (i, arg) in (&self.signature[args_len..]).iter().enumerate() {
+                // args parameters are previously pushed onto the stack.
+                let var = &mut args[args_len + i];
 
-            //println!("{} {:?} {:?}", i, arg, var);
-            if matches!(var, Capture::Empty) {
-                // In case the parameter is empty, try to get it from nargs...
-                if let Some(ref mut nargs) = nargs {
-                    if let Some(value) = nargs.remove_str(&arg.0) {
-                        *var = Capture::Value(value, None, 0);
+                //println!("{} {:?} {:?}", i, arg, var);
+                if matches!(var, Capture::Empty) {
+                    // In case the parameter is empty, try to get it from nargs...
+                    if let Some(ref mut nargs) = nargs {
+                        if let Some(value) = nargs.remove_str(&arg.0) {
+                            *var = Capture::Value(value, None, 0);
+                            continue;
+                        }
+                    }
+
+                    // Otherwise, use default value if available.
+                    if let Some(addr) = arg.1 {
+                        // fixme: This might leak the immutable static value to something mutable...
+                        *var = Capture::Value(thread.program.statics[addr].clone(), None, 0);
+                        //println!("{} receives default {:?}", arg.0, var);
                         continue;
                     }
-                }
 
-                // Otherwise, use default value if available.
-                if let Some(addr) = arg.1 {
-                    // fixme: This might leak the immutable static value to something mutable...
-                    *var = Capture::Value(thread.program.statics[addr].clone(), None, 0);
-                    //println!("{} receives default {:?}", arg.0, var);
-                    continue;
+                    return Error::new(
+                        None,
+                        format!("{}() expected argument '{}'", self.name, arg.0),
+                    )
+                    .into();
                 }
-
-                return Error::new(
-                    None,
-                    format!("{}() expected argument '{}'", self.name, arg.0),
-                )
-                .into();
             }
-        }
 
-        // Check for remaining nargs
-        // todo: Not executed when **nargs-catchall is implemented
-        if let Some(mut nargs) = nargs {
-            if let Some((name, _)) = nargs.pop() {
-                return Err(match nargs.len() {
-                    0 => format!(
-                        "{}() doesn't accept named argument '{}'",
-                        self.name,
-                        name.to_string()
-                    ),
-                    n => format!(
-                        "{}() doesn't accept named arguments ({} given)",
-                        self.name,
-                        n + 1
-                    ),
+            // Check for remaining nargs
+            // todo: Not executed when **nargs-catchall is implemented
+            if let Some(mut nargs) = nargs {
+                if let Some((name, _)) = nargs.pop() {
+                    return Err(match nargs.len() {
+                        0 => format!(
+                            "{}() doesn't accept named argument '{}'",
+                            self.name,
+                            name.to_string()
+                        ),
+                        n => format!(
+                            "{}() doesn't accept named arguments ({} given)",
+                            self.name,
+                            n + 1
+                        ),
+                    }
+                    .into())
+                    .into();
                 }
-                .into())
-                .into();
             }
         }
 
@@ -377,5 +380,26 @@ impl PartialEq for ParseletRef {
 impl PartialOrd for ParseletRef {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.id().partial_cmp(&other.id())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for ParseletRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.borrow().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ParseletRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Parselet::deserialize(deserializer)?;
+        Ok(ParseletRef(Rc::new(RefCell::new(value))))
     }
 }

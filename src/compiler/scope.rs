@@ -28,6 +28,9 @@ pub(super) struct Scope<'compiler, 'parent> {
 }
 
 impl<'compiler, 'parent> Scope<'compiler, 'parent> {
+    /** Create a new scope in compiler, with scopelevel level, and optional parent.
+
+    Use self.shadow() for simpler scope creation. */
     pub fn new(
         compiler: &'compiler Compiler,
         level: ScopeLevel,
@@ -53,10 +56,12 @@ impl<'compiler, 'parent> Scope<'compiler, 'parent> {
         scope
     }
 
+    /// Create a new scope with given level and and shadow self until the new scope outlives
     pub fn shadow(&'parent self, level: ScopeLevel) -> Self {
         Self::new(self.compiler, level, Some(self))
     }
 
+    /// Check if self is the global scope
     pub fn is_global(&self) -> bool {
         match self.level {
             ScopeLevel::Parselet(_) => self.parent.is_none(),
@@ -64,6 +69,7 @@ impl<'compiler, 'parent> Scope<'compiler, 'parent> {
         }
     }
 
+    /// Check if scope is a loop-scope.
     pub fn is_loop(&self) -> bool {
         match self.level {
             ScopeLevel::Loop => true,
@@ -72,6 +78,7 @@ impl<'compiler, 'parent> Scope<'compiler, 'parent> {
         }
     }
 
+    /// Retrieve current outer parselet; In global scope, this is the __main__ parselet.
     pub fn parselet(&self) -> ImlRefParselet {
         match &self.level {
             ScopeLevel::Parselet(parselet) => parselet.clone(),
@@ -79,11 +86,12 @@ impl<'compiler, 'parent> Scope<'compiler, 'parent> {
         }
     }
 
+    /// Register variable with name
     pub fn register_variable(&self, name: &str) {
         self.parselet().borrow().model.borrow_mut().var(name);
     }
 
-    /** Define constant to name in current scope. */
+    /// Define constant value to name in current scope.
     pub fn define_constant(&self, name: &str, mut value: ImlValue) {
         /*
             Special meaning for whitespace constants names "_" and "__".
@@ -117,7 +125,7 @@ impl<'compiler, 'parent> Scope<'compiler, 'parent> {
         constants.insert(name.to_string(), value);
     }
 
-    /** Resolve a name starting from the current scope. */
+    /// Resolve a name starting from the current scope.
     pub fn resolve_name(&self, offset: Option<Offset>, name: &str) -> Option<ImlValue> {
         let mut top = Some(self);
         let mut top_parselet = true;
@@ -173,6 +181,7 @@ impl<'compiler, 'parent> Scope<'compiler, 'parent> {
         None
     }
 
+    /// Resolve any open usages within the current scope.
     pub fn resolve_usages(&self) {
         let resolve: Vec<ImlValue> = self.usages.borrow_mut().drain(..).collect();
 

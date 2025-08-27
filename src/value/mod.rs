@@ -1,5 +1,6 @@
 //! Tokay value and object representation
 pub mod dict;
+mod dynbuiltin;
 pub mod iter;
 pub mod list;
 mod method;
@@ -12,6 +13,7 @@ pub mod value;
 
 pub use self::str::Str;
 pub use dict::Dict;
+pub use dynbuiltin::DynBuiltin;
 pub use iter::*;
 pub use list::List;
 pub use method::Method;

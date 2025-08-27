@@ -1,10 +1,11 @@
 //! Universal low-level interface to let Tokay read input from different sources.
 use num_parse::PeekableIterator;
-use std::io::prelude::*;
 use std::io::BufReader;
+use std::io::prelude::*;
 
 /// Position inside a reader, with row and column counting.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Offset {
     // todo: Hold source filename information as well in the future?
     pub offset: usize,

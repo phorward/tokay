@@ -637,7 +637,7 @@ fn traverse_node_lvalue(scope: &Scope, node: &Dict, store: bool, hold: bool) -> 
                         ops.push(Op::StoreItem.into());
                     }
                 } else {
-                    ops.push(Op::LoadItem.into())
+                    ops.push(Op::LoadItem { upsert: true }.into())
                 }
             }
 
@@ -714,7 +714,7 @@ fn traverse_node_rvalue(scope: &Scope, node: &Dict, mode: Rvalue) -> ImlOp {
         "item" => ImlOp::from(vec![
             traverse(scope, &node["children"]),
             traverse_offset(node),
-            ImlOp::from(Op::LoadItem),
+            ImlOp::from(Op::LoadItem { upsert: false }),
         ]),
 
         // rvalue ---------------------------------------------------------
@@ -723,11 +723,15 @@ fn traverse_node_rvalue(scope: &Scope, node: &Dict, mode: Rvalue) -> ImlOp {
 
             let mut ops = vec![traverse_offset(node)];
 
-            for node in children.iter() {
+            for i in 0..children.len() {
                 ops.push(traverse_node_rvalue(
                     scope,
-                    node.borrow().object::<Dict>().unwrap(),
-                    Rvalue::Load,
+                    children[i].borrow().object::<Dict>().unwrap(),
+                    if i < children.len() - 1 {
+                        Rvalue::CallOrLoad
+                    } else {
+                        Rvalue::Load
+                    },
                 ));
             }
 
@@ -809,15 +813,15 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
             /* assignment with operation */
             if parts.len() > 1 && !["copy", "drop", "hold"].contains(&parts[1]) {
                 ops.push(traverse_node_lvalue(scope, lvalue, false, false));
-                ops.push(traverse_node_rvalue(scope, value, Rvalue::Load));
+                ops.push(traverse_node_rvalue(scope, value, Rvalue::CallOrLoad));
 
                 ops.push(match parts[1] {
-                    "add" => ImlOp::from(Op::BinaryOp("iadd")),
-                    "sub" => ImlOp::from(Op::BinaryOp("isub")),
-                    "mul" => ImlOp::from(Op::BinaryOp("imul")),
-                    "div" => ImlOp::from(Op::BinaryOp("idiv")),
-                    "divi" => ImlOp::from(Op::BinaryOp("idivi")),
-                    "mod" => ImlOp::from(Op::BinaryOp("imod")),
+                    "add" => ImlOp::from(Op::BinaryOp(BinaryOp::InlineAdd)),
+                    "sub" => ImlOp::from(Op::BinaryOp(BinaryOp::InlineSub)),
+                    "mul" => ImlOp::from(Op::BinaryOp(BinaryOp::InlineMul)),
+                    "div" => ImlOp::from(Op::BinaryOp(BinaryOp::InlineDiv)),
+                    "divi" => ImlOp::from(Op::BinaryOp(BinaryOp::InlineIntDiv)),
+                    "mod" => ImlOp::from(Op::BinaryOp(BinaryOp::InlineMod)),
                     _ => unreachable!(),
                 });
 
@@ -829,7 +833,7 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
             }
             /* normal assignment without operation */
             else {
-                ops.push(traverse_node_rvalue(scope, value, Rvalue::Load));
+                ops.push(traverse_node_rvalue(scope, value, Rvalue::CallOrLoad));
                 ops.push(traverse_offset(node));
                 ops.push(traverse_node_lvalue(
                     scope,
@@ -1022,10 +1026,14 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
         // comparison -----------------------------------------------------
         "comparison" => {
             // comparison can be a chain of comparisons, allowing to compare e.g. `1 < 2 < 3`
-            let children = node["children"].borrow();
-            let mut children = children.object::<List>().unwrap().clone();
+            let mut branches = Vec::new();
 
-            let first = children.remove(0);
+            let children = node["children"].borrow();
+            let children = children.object::<List>().unwrap();
+
+            let mut child_iter = children.iter().peekable();
+
+            let first = child_iter.next().unwrap();
             let first = first.borrow();
 
             let mut ops = Vec::new();
@@ -1036,59 +1044,77 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
                 Rvalue::CallOrLoad,
             ));
 
-            let mut backpatch = Vec::new();
+            while let Some(op) = child_iter.next() {
+                let op = op.borrow();
+                let op = op.object::<Dict>().unwrap();
 
-            while !children.is_empty() {
-                let child = children.remove(0);
-                let child = child.borrow();
-                let child = child.object::<Dict>().unwrap();
-
-                let emit = child["emit"].borrow();
+                let emit = op["emit"].borrow();
                 let emit = emit.object::<Str>().unwrap().as_str();
 
-                let next = child["children"].borrow();
+                let next = op["children"].borrow();
 
-                ops.push(traverse_node_rvalue(
-                    scope,
-                    &next.object::<Dict>().unwrap(),
-                    Rvalue::CallOrLoad,
-                ));
+                // Old (current) path
+                if let Some(next) = next.object::<Dict>() {
+                    ops.push(traverse_node_rvalue(scope, &next, Rvalue::CallOrLoad));
+                }
+                // New (desired) path
+                else {
+                    let next = child_iter.next().unwrap();
+                    let next = next.borrow();
 
-                // Chained comparison requires forperand duplication
-                if !children.is_empty() {
+                    ops.push(traverse_node_rvalue(
+                        scope,
+                        &next.object::<Dict>().unwrap(),
+                        Rvalue::CallOrLoad,
+                    ));
+                }
+
+                let is_chained = child_iter.peek().is_some();
+
+                // Chained comparison requires for operand duplication
+                if is_chained {
                     ops.push(ImlOp::from(Op::Swap(2))); // Swap operands
-                    ops.push(ImlOp::from(Op::Copy(2))); // Copy second operand
+                    ops.push(ImlOp::from(Op::Copy(2))); // Copy second operand, to keep a copy
                 }
 
                 ops.push(ImlOp::from(match emit {
-                    "cmp_eq" => Op::BinaryOp("eq"),
-                    "cmp_neq" => Op::BinaryOp("neq"),
-                    "cmp_lteq" => Op::BinaryOp("lteq"),
-                    "cmp_gteq" => Op::BinaryOp("gteq"),
-                    "cmp_lt" => Op::BinaryOp("lt"),
-                    "cmp_gt" => Op::BinaryOp("gt"),
+                    "cmp_eq" => Op::BinaryOp(BinaryOp::Eq),
+                    "cmp_neq" => Op::BinaryOp(BinaryOp::Neq),
+                    "cmp_lteq" => Op::BinaryOp(BinaryOp::LtEq),
+                    "cmp_gteq" => Op::BinaryOp(BinaryOp::GtEq),
+                    "cmp_lt" => Op::BinaryOp(BinaryOp::Lt),
+                    "cmp_gt" => Op::BinaryOp(BinaryOp::Gt),
                     _ => unimplemented!("{}", emit),
                 }));
 
-                // Push and remember placeholder for later clean-up jump
-                if !children.is_empty() {
-                    backpatch.push(ops.len());
-                    ops.push(ImlOp::Nop); // Placeholder for condition
-                }
+                // Push this branch
+                branches.push(ops);
+                ops = Vec::new();
             }
 
-            if backpatch.len() > 0 {
-                // Jump over clean-up part with last result
-                ops.push(ImlOp::from(Op::Forward(3)));
+            let mut branches = branches.into_iter().rev().peekable();
 
-                // Otherwise, remember clean-up start
-                let clean_up = ops.len();
-                ops.push(ImlOp::from(Op::Drop));
-                ops.push(ImlOp::from(Op::PushFalse));
+            while let Some(mut branch) = branches.next() {
+                // println!("{:?} {:?}", branch, branches.peek().is_none());
+                branch.extend(ops);
+                ops = branch;
 
-                // Backpatch all placeholders to relative jump to the clean-up part
-                for index in backpatch {
-                    ops[index] = ImlOp::from(Op::ForwardIfFalse(clean_up - index + 1));
+                if branches.peek().is_some() {
+                    let then: Vec<_> = ops.drain(..).collect();
+
+                    ops.push(ImlOp::If {
+                        peek: false,
+                        test: true,
+                        then: Box::new(if then.len() == 0 {
+                            ImlOp::from(Op::PushTrue)
+                        } else {
+                            ImlOp::from(then)
+                        }),
+                        else_: Box::new(ImlOp::from(vec![
+                            ImlOp::from(Op::Drop),
+                            ImlOp::from(Op::PushFalse),
+                        ])),
+                    })
                 }
             }
 
@@ -1113,6 +1139,16 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
                 scope.push_error(
                     traverse_node_offset(node),
                     format!("Expected identifier, found reserved word '{}'", ident),
+                );
+
+                return ImlOp::Nop;
+            }
+
+            // Disallow assignment to variable in scope
+            if let Some(ImlValue::Variable { .. }) = scope.resolve_name(None, &ident) {
+                scope.push_error(
+                    traverse_node_offset(node),
+                    format!("Cannot assign constant value to variable '{}'", ident),
                 );
 
                 return ImlOp::Nop;
@@ -1180,9 +1216,9 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
             match parts[1] {
                 "pre" => {
                     ops.push(ImlOp::from(if parts[2] == "inc" {
-                        Op::UnaryOp("iinc")
+                        Op::UnaryOp(UnaryOp::Inc)
                     } else {
-                        Op::UnaryOp("idec")
+                        Op::UnaryOp(UnaryOp::Dec)
                     }));
                     ops.push(ImlOp::from(Op::Sep)); // Separate TOS
                 }
@@ -1191,9 +1227,9 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
                         ImlOp::from(Op::Dup),
                         ImlOp::from(Op::Swap(2)),
                         ImlOp::from(if parts[2] == "inc" {
-                            Op::UnaryOp("iinc")
+                            Op::UnaryOp(UnaryOp::Inc)
                         } else {
-                            Op::UnaryOp("idec")
+                            Op::UnaryOp(UnaryOp::Dec)
                         }),
                         ImlOp::from(Op::Drop),
                     ]);
@@ -1278,9 +1314,17 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
 
                     let res = traverse_node_rvalue(scope, children, Rvalue::CallOrLoad);
 
+                    let op = match parts[2] {
+                        "idec" => UnaryOp::Dec,
+                        "iinc" => UnaryOp::Inc,
+                        "neg" => UnaryOp::Neg,
+                        "not" => UnaryOp::Not,
+                        _ => unimplemented!("{}", emit),
+                    };
+
                     // Evaluate operation at compile-time if possible
                     if let Ok(value) = res.get_evaluable_value() {
-                        if let Ok(value) = value.unary_op(parts[2]) {
+                        if let Ok(value) = value.unary_op(op.to_str()) {
                             return ImlOp::load(
                                 scope,
                                 traverse_node_offset(node),
@@ -1294,13 +1338,7 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
                     // Push operation position here
                     ops.push(traverse_offset(node));
 
-                    ImlOp::from(match parts[2] {
-                        "not" => Op::UnaryOp("not"),
-                        "neg" => Op::UnaryOp("neg"),
-                        _ => {
-                            unimplemented!("{}", emit);
-                        }
-                    })
+                    ImlOp::from(Op::UnaryOp(op))
                 }
 
                 "binary" | "logical" => {
@@ -1344,11 +1382,23 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
                             }
                         }
                         _ => {
+                            let op = match parts[2] {
+                                "add" => BinaryOp::Add,
+                                "sub" => BinaryOp::Sub,
+                                "mul" => BinaryOp::Mul,
+                                "div" => BinaryOp::Div,
+                                "divi" => BinaryOp::IntDiv,
+                                "mod" => BinaryOp::Mod,
+                                _ => {
+                                    unimplemented!("{}", emit);
+                                }
+                            };
+
                             // When both operands are direct values, evaluate operation at compile-time
                             if let (Ok(left), Ok(right)) =
                                 (left.get_evaluable_value(), right.get_evaluable_value())
                             {
-                                if let Ok(value) = left.binary_op(right, parts[2]) {
+                                if let Ok(value) = left.binary_op(right, op.to_str()) {
                                     return ImlOp::load(
                                         scope,
                                         traverse_node_offset(node),
@@ -1364,17 +1414,7 @@ fn traverse_node(scope: &Scope, node: &Dict) -> ImlOp {
                             // Push operation position here
                             ops.push(traverse_offset(node));
 
-                            ImlOp::from(match parts[2] {
-                                "add" => Op::BinaryOp("add"),
-                                "sub" => Op::BinaryOp("sub"),
-                                "mul" => Op::BinaryOp("mul"),
-                                "div" => Op::BinaryOp("div"),
-                                "divi" => Op::BinaryOp("divi"),
-                                "mod" => Op::BinaryOp("mod"),
-                                _ => {
-                                    unimplemented!("{}", emit);
-                                }
-                            })
+                            ImlOp::from(Op::BinaryOp(op))
                         }
                     }
                 }
@@ -1812,7 +1852,7 @@ tokay_function!("ast2rust : @ast, level=0", {
             let children = d.get_str("children");
 
             print!(
-                "{space:indent$}{br_left}value!([\n{space:indent$}    \"emit\" => {emit:?}",
+                "{space:indent$}{br_left}crate::value!([\n{space:indent$}    \"emit\" => {emit:?}",
                 space = "",
                 indent = indent * 4,
                 br_left = br_left,
@@ -1846,7 +1886,7 @@ tokay_function!("ast2rust : @ast, level=0", {
             );
         } else if let Some(l) = value.object::<List>() {
             print!(
-                "{space:indent$}{br_left}value!([\n",
+                "{space:indent$}{br_left}crate::value!([\n",
                 space = "",
                 indent = indent * 4,
                 br_left = br_left

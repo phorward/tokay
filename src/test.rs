@@ -1,6 +1,6 @@
 //! Unit tests
-use crate::utils::*;
-use crate::value;
+use crate::utils::testcase;
+use crate::{eval, value};
 use tokay_macros;
 
 #[test]
@@ -21,16 +21,17 @@ fn test_case() {
 // Testing examples provided in the examples folder
 fn examples() {
     assert_eq!(
-        run(
+        eval(
             include_str!("../examples/planets.tok"),
-            "Mercury Venus Earth Mars"
+            "Mercury Venus Earth Mars",
+            None
         ),
-        Ok(Some(value!([
+        Ok(value!([
             "Hello Mercury",
             "Hello Venus",
             "Hello World",
             "Hello Mars"
-        ])))
+        ]))
     );
 
     /*
@@ -53,27 +54,32 @@ fn examples() {
     */
 
     assert_eq!(
-        run(include_str!("../examples/expr.tok"), "1+2*3+4"),
-        Ok(Some(value!(11)))
+        eval(include_str!("../examples/expr.tok"), "1+2*3+4", None),
+        Ok(value!(11))
     );
 
     // todo: Would be nice to test against stdout
     assert_eq!(
-        run(include_str!("../examples/expr_with_ast.tok"), "1+2*3+4"),
-        Ok(None)
-    );
-
-    assert_eq!(
-        run(
-            include_str!("../examples/expr_with_spaces.tok"),
-            "1 +  \t 2 \n *  3 + 4"
+        eval(
+            include_str!("../examples/expr_with_ast.tok"),
+            "1+2*3+4",
+            None
         ),
-        Ok(Some(value!(11)))
+        Ok(value![void])
     );
 
     assert_eq!(
-        run(include_str!("../examples/factorial.tok"), ""),
-        Ok(Some(value!(24)))
+        eval(
+            include_str!("../examples/expr_with_spaces.tok"),
+            "1 +  \t 2 \n *  3 + 4",
+            None
+        ),
+        Ok(value!(11))
+    );
+
+    assert_eq!(
+        eval(include_str!("../examples/factorial.tok"), "", None),
+        Ok(value!(24))
     );
 }
 

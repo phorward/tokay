@@ -1,0 +1,57 @@
+# value.tok is a subset of tokay.tok
+# It implements a recognizer for Tokay atomic values.
+# This file can be entirely replaced when there is a modularization available.
+
+T_OctDigit : Char<0-7>
+
+T_HexDigit : Char<0-9A-Fa-f>
+
+T_EscapeSequence : @{
+    # Named escape sequences
+    'a'  "\x07"
+    'b'  "\x08"
+    'f'  "\x0c"
+    'n'  "\n"
+    'r'  "\r"
+    't'  "\t"
+    'v'  "\x0b"
+
+    # Encoded escape sequences
+    # fixme: This can be resolved better as soon as the Repeat generic builtin is ready
+
+    # ASCII Octal (8-Bit)
+    T_OctDigit T_OctDigit T_OctDigit  chr(int($1) * 64 + int($2) * 8 + int($3))
+
+    # ASCII Hex (8-Bit)
+    'x' T_HexDigit T_HexDigit chr(int("0x" + $0.substr(1)))
+
+    # Unicode (32-Bit)
+    'u' T_HexDigit T_HexDigit T_HexDigit T_HexDigit  chr(int("0x" + $0.substr(1)))
+
+    # Unicode (64-Bit)
+    'U' T_HexDigit T_HexDigit T_HexDigit T_HexDigit \
+        T_HexDigit T_HexDigit T_HexDigit T_HexDigit \
+        chr(int("0x" + $0.substr(1)))
+
+    # fixme: In case when odd amount of digits is provided, a syntax error shall occur.
+    #        This is like in Python: "\x2" SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes in position 0-2: truncated \xXX escape
+
+    Char
+}
+
+T_String : @{
+    '"' {
+        '\\' T_EscapeSequence
+        Char<^\\\">
+        EOF  error("Unclosed string, expecting '\"'")
+    }*  str_join("", $2) Expect<'"'>
+}
+
+_ Keyword<'true'> _  true
+_ Keyword<'false'> _  false
+_ Keyword<'void'> _  void
+_ Keyword<'null'> _  null
+_ T_String
+_ Number _
+
+Char+

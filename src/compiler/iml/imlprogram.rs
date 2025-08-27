@@ -1,12 +1,12 @@
 //! ImlProgram glues ImlParselet, ImlOp and ImlValue together to produce a VM program.
 
 use super::*;
+use crate::Error;
 use crate::reader::Offset;
 use crate::value::ParseletRef;
 use crate::vm::Program;
-use crate::Error;
 use crate::{Object, RefValue};
-use indexmap::{indexmap, indexset, IndexMap, IndexSet};
+use indexmap::{IndexMap, IndexSet, indexmap, indexset};
 use log;
 use std::cell::RefCell;
 use std::collections::HashMap;

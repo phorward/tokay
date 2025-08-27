@@ -1,0 +1,9 @@
+#testmode:repl
+
+"Glasflügel".upper().replace("L")  # explicit
+"Glasflügel".upper.replace("L")  # implicit
+
+#---
+
+#"GASFÜGE"
+#"GASFÜGE"

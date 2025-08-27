@@ -17,6 +17,7 @@ _ 'tokay_' kind => {
     #print(offset()["filename"], $kind, $name)
 
     mod = offset()["filename"].split("/")
+    mod.pop(0)  # remove the "src/"
     last = mod.len - 1
     mod[last] = mod[last].replace(".rs")
     if mod[last] == "mod" mod.pop()

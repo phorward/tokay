@@ -1,11 +1,10 @@
 //! Dictionary object
-use super::{BoxedObject, MethodIter, Object, RefValue, Str, Value};
-use crate::value;
+use super::{BoxedObject, MethodIter, Object, RefValue, Str};
 use crate::Error;
+use crate::value;
 use indexmap::IndexMap;
 use tokay_macros::tokay_method;
 extern crate self as tokay;
-use num::ToPrimitive;
 use std::cmp::Ordering;
 
 // Alias for the inner dict
@@ -13,6 +12,8 @@ type InnerDict = IndexMap<RefValue, RefValue>;
 
 // Dict object type
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Dict {
     dict: InnerDict,
 }
@@ -82,6 +83,7 @@ impl Object for Dict {
     }
 }
 
+#[allow(unused_doc_comments)]
 impl Dict {
     pub fn new() -> Self {
         Self {
@@ -101,8 +103,45 @@ impl Dict {
         self.shift_remove(&RefValue::from(key)) // fixme: improve lookup!
     }
 
-    tokay_method!("dict : @", Ok(RefValue::from(Dict::new())));
+    /** Creates a new `dict`.
 
+    Any provided `nargs` become key-value-pairs in the newly created dict.
+
+    This can also be shortcut by the `()` syntax.
+    */
+    tokay_method!(
+        "dict : @**nargs",
+        Ok(RefValue::from(if let Some(nargs) = nargs {
+            nargs.clone()
+        } else {
+            Dict::new()
+        }))
+    );
+
+    /** Creates an iterator over a `dict`.
+
+    The iterator is a method-iterator calling `iter_values()`.
+    */
+    tokay_method!("dict_iter : @dict", {
+        // If index is void, create an iterator on keys.
+        if dict.is("dict") {
+            Ok(RefValue::from(MethodIter::new_method_iter(
+                dict.clone(),
+                "values",
+                None,
+                "iinc",
+            )))
+        } else {
+            Err(Error::from(format!(
+                "{} only accepts '{}' as parameter, not '{}'",
+                __function,
+                "dict",
+                dict.name()
+            )))
+        }
+    });
+
+    /// Returns the number of items in the `dict`.
     tokay_method!("dict_len : @dict", {
         let dict = dict.borrow();
 
@@ -118,6 +157,7 @@ impl Dict {
         }
     });
 
+    /// Clone `dict` into a standalone copy.
     tokay_method!("dict_clone : @dict", {
         let dict = dict.borrow();
 
@@ -133,8 +173,13 @@ impl Dict {
         }
     });
 
-    // Method to retrieve or iterate the keys of a dict.
-    tokay_method!("dict_keys : @dict, index=void", {
+    /** Retrieve or iterate the keys of a `dict`.
+
+    When no `index` is given, the method returns an iterator over the keys.
+    Otherwise, the key at the provided `index` is returned, or `default` in
+    case the `index` is out of bounds.
+    */
+    tokay_method!("dict_keys : @dict, index=void, default=void", {
         // If index is void, create an iterator on keys.
         if index.is_void() {
             return Ok(RefValue::from(MethodIter::new_method_iter(
@@ -151,7 +196,7 @@ impl Dict {
             if let Some((key, _)) = dict.get_index(index.to_usize()?) {
                 Ok(key.clone())
             } else {
-                Ok(value!(void))
+                Ok(default)
             }
         } else {
             Err(Error::from(format!(
@@ -163,8 +208,50 @@ impl Dict {
         }
     });
 
-    // Method to retrieve or iterate a list of [key, value] from a dict by index
-    tokay_method!("dict_items : @dict, index=void", {
+    /** Retrieve or iterate the values of a `dict`.
+
+    When no `index` is given, the method returns an iterator over the values.
+    Otherwise, the value at the provided `index` is returned, or `default` in
+    case the `index` is out of bounds.
+    */
+    tokay_method!("dict_values : @dict, index=void, default=void", {
+        // If index is void, create an iterator on keys.
+        if index.is_void() {
+            return Ok(RefValue::from(MethodIter::new_method_iter(
+                dict.clone(),
+                "values",
+                None,
+                "iinc",
+            )));
+        }
+
+        // Otherwise, borrow
+        let dict = dict.borrow();
+        if let Some(dict) = dict.object::<Dict>() {
+            if let Some((_, value)) = dict.get_index(index.to_usize()?) {
+                Ok(value.clone())
+            } else {
+                Ok(default)
+            }
+        } else {
+            Err(Error::from(format!(
+                "{} only accepts '{}' as parameter, not '{}'",
+                __function,
+                "dict",
+                dict.name()
+            )))
+        }
+    });
+
+    /** Retrieve or iterate both keys and values of a `dict`.
+
+    The function returns a list of key-value for each result.
+
+    When no `index` is given, the method returns an iterator over the key-value-pairs.
+    Otherwise, the key-value-pair at the provided `index` is returned, or `default` in
+    case the `index` is out of bounds.
+    */
+    tokay_method!("dict_items : @dict, index=void, default=void", {
         // If index is void, create an iterator on items.
         if index.is_void() {
             return Ok(RefValue::from(MethodIter::new_method_iter(
@@ -181,44 +268,6 @@ impl Dict {
             if let Some((key, value)) = dict.get_index(index.to_usize()?) {
                 Ok(value!([(key.clone()), (value.clone())]))
             } else {
-                Ok(value!(void))
-            }
-        } else {
-            Err(Error::from(format!(
-                "{} only accepts '{}' as parameter, not '{}'",
-                __function,
-                "dict",
-                dict.name()
-            )))
-        }
-    });
-
-    tokay_method!("dict_get_item : @dict, item, default=void", {
-        if !item.is_hashable() {
-            return Err(Error::from(format!(
-                "{} unhashable type '{}'",
-                __function,
-                item.name()
-            )));
-        }
-
-        // todo: alias dict_get
-        let dict = dict.borrow();
-
-        if let Some(dict) = dict.object::<Dict>() {
-            if let Some(item) = dict.get(&item) {
-                Ok(item.clone())
-            } else {
-                // In case index is an int that can be turned into an usize,
-                // try to obtain the dict item by its index
-                if let Value::Int(index) = &*item.borrow() {
-                    if let Some(index) = index.to_usize() {
-                        if let Some((_, item)) = dict.get_index(index) {
-                            return Ok(item.clone());
-                        }
-                    }
-                }
-
                 Ok(default)
             }
         } else {
@@ -231,12 +280,75 @@ impl Dict {
         }
     });
 
-    tokay_method!("dict_set_item : @dict, item, value=void", {
-        if !item.is_hashable() {
+    /** Retrieve item with `key` from `dict`.
+
+    When `upsert=true`, it creates and returns a new item with the `default` value, if no value with `key` is present.
+    A `default`-value of `void` will become `null` in upsert-mode.
+
+    Otherwise, `default` is just returned when the specified `key` is not present.
+
+    This method is also invoked when using the `dict` item syntax.
+    */
+    tokay_method!("dict_get_item : @dict, key, default=void, upsert=false", {
+        if !dict.is("dict") {
+            return Err(Error::from(format!(
+                "{} only accepts '{}' as parameter, not '{}'",
+                __function,
+                "dict",
+                dict.name()
+            )));
+        }
+
+        if !key.is_hashable() {
             return Err(Error::from(format!(
                 "{} unhashable type '{}'",
                 __function,
-                item.name()
+                key.name()
+            )));
+        }
+
+        if upsert.is_true() {
+            let mut dict = dict.borrow_mut();
+            let dict = dict.object_mut::<Dict>().unwrap();
+
+            if let Some(value) = dict.get(&key) {
+                Ok(value.clone())
+            } else {
+                // follow the void paradigm; void cannot be upserted, so default to null.
+                if default.is_void() {
+                    default = value![null];
+                }
+
+                dict.insert(key, default.clone());
+                Ok(default)
+            }
+        } else {
+            let dict = dict.borrow();
+            let dict = dict.object::<Dict>().unwrap();
+
+            if let Some(value) = dict.get(&key) {
+                Ok(value.clone())
+            } else {
+                Ok(default)
+            }
+        }
+    });
+
+    /** Insert or replace `value` under the given `key` in `dict`.
+
+    When `value` is provided as void, the key is removed.
+
+    Returns the previous item's value if the key already existed in `dict`,
+    otherwise void.
+
+    This method is also invoked when assigning to a `dict` item.
+    */
+    tokay_method!("dict_set_item : @dict, key, value=void", {
+        if !key.is_hashable() {
+            return Err(Error::from(format!(
+                "{} unhashable type '{}'",
+                __function,
+                key.name()
             )));
         }
 
@@ -244,10 +356,10 @@ impl Dict {
 
         if let Some(dict) = dict.object_mut::<Dict>() {
             if value.is_void() {
-                dict.shift_remove(&item);
+                dict.shift_remove(&key);
                 Ok(value![void])
             } else {
-                dict.insert(item, value.clone());
+                dict.insert(key, value.clone());
                 Ok(value)
             }
         } else {
@@ -260,6 +372,7 @@ impl Dict {
         }
     });
 
+    /** Merges dict `other` into `dict`. */
     tokay_method!("dict_merge : @dict, other", {
         {
             let dict = &mut *dict.borrow_mut();
@@ -292,25 +405,9 @@ impl Dict {
         Ok(dict)
     });
 
-    tokay_method!("dict_push : @dict, key, value", {
-        let dict = &mut *dict.borrow_mut();
+    /** Returns and removes `key` from `dict`.
 
-        if let Some(dict) = dict.object_mut::<Dict>() {
-            Ok(if let Some(old) = dict.insert(key, value) {
-                old
-            } else {
-                value!(void)
-            })
-        } else {
-            Err(Error::from(format!(
-                "{} only accepts '{}' as parameter, not '{}'",
-                __function,
-                "dict",
-                dict.name()
-            )))
-        }
-    });
-
+    When the given `key` does not exist, `default` will be returned, */
     tokay_method!("dict_pop : @dict, key=void, default=void", {
         let dict = &mut *dict.borrow_mut();
 

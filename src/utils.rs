@@ -1,28 +1,8 @@
 //! Utility functions
-use crate::compiler::Compiler;
 use crate::value::*;
 use std::fs::File;
 use std::io::{Read, Write}; // BufRead, BufReader,
 use std::process::{Command, Stdio};
-
-/** Compiles a Tokay source and runs the resulting program with an input stream from a &str.
-
-This function is mostly used internally within tests, but can also be used from outside. */
-pub fn run(src: &str, input: &str) -> Result<Option<RefValue>, String> {
-    let mut compiler = Compiler::new();
-
-    match compiler.compile_from_str(src) {
-        Ok(Some(program)) => program
-            .run_from_string(input.to_owned())
-            .map_err(|err| err.to_string()),
-        Ok(None) => Ok(None),
-        Err(errors) => Err(errors
-            .into_iter()
-            .map(|err| err.to_string())
-            .collect::<Vec<String>>()
-            .join("\n")),
-    }
-}
 
 /// Checks if an identifier defines a Tokay consumable.
 pub(crate) fn identifier_is_consumable(ident: &str) -> bool {

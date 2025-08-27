@@ -1,31 +1,101 @@
 # Changelog
 
+This file contains a short note on relevant changes to the Tokay programming language.
+
 ## [main]
 
 Current main branch.
 
-- v0.6.6:
-  - Improved and revised `list` and `dict` syntax
-    - `,` is now some kind of operator, denoting a list
-  - Implementation and use of `Keyword<P>`
-  - `Empty` and `Void` clarification
-  - Improved logging and debug
-  - Compiler internals
-    - New `Scope` struct
-    - More refactoring on `ImlValue`
-- v0.6.5: Implementation of generic parselets
-  - Syntax changes
-  - Handle parselet instances
-  - Handle generic values in intermediate structures
-  - System-defined parselets in prelude
-    - `Repeat<P, min: 1, max: void>`
-      - Implement `Pos<P>`, `Opt<P>`, `Kle<P>`
-      - Compile `P+` into `Pos<P>`, `P?` into `Opt<P>`, `P*` into `Kle<P>`
-    - `List<P, Sep: (',' _), empty: true>`
-    - `Peek<P>`, replaced `peek P` by `Peek<P>`
-    - `Not<P>`, replaced `not P` by `Not<P>`
-    - `Expect<P> msg=void`, replaced `expect P` by `Expect<P>`
-- v0.6.4:
+### [v0.6.12] Removal of any `unsafe`-stuff again, bugfix release
+
+- Fixed a bug related to `cli`-feature-dependent compilation
+- Removed `-d` command-line flags and updated docs
+
+### [v0.6.11] `serde`-support and `_tokay.cbor`-based parser
+
+- feat: `serde`-support
+  - `Value` and `RefValue` (limited to atomics: void, null, bool, int, float, str, list and dict)
+  - `Parselet`, `Op` and `Program` to serialize and deserialize a VM program
+- feat: Use `_tokay.cbor` parser as fast, built-in, binary-encoded Tokay VM program (compiled `tokay.tok`)
+
+### [v0.6.10] `DynBuiltin`
+
+- feat: DynBuiltins to overwrite builtin-function constants (#158)
+
+### [v0.6.9] `tokay::eval` & variable setting
+
+- feat: `UnaryOp` and `BinaryOp` types (#156)
+- feat: Set global variables from outside (`-v`-parameter) (#154)
+- feat: `upsert`-feature for `dict` and `list` (#155)
+- feat: Accept `nargs` for `Builtin::call()` and `RefValue::call_method()`
+
+### [v0.6.8] WASM Update
+
+- `cli`-feature to make `wasm` target possible (#153)
+- feat: Replace `Token::BuiltinChar` by `Token::Char`
+- fix: Rvalue traversals with calls
+- fix: Use charclass==0.3.0
+
+### [v0.6.7] Feature update
+
+Released on Apr 29, 2025
+
+- chore: Move `build`-toolchain into the root
+- chore: Update to Rust Edition 2024
+- feat: `list_index()`-function
+- feat: `min()`, `max()`, `sum()` and `avg()` (#145)
+- feat: Add builtin `str_find`
+- feat: Adding `list_clone()` function
+- feat: Implement explicit `list_extend()`
+- feat: Improve `for...in` syntax
+- feat: Improved `Token` prelude to match `AsciiPunctuation` first
+- feat: Improving `dict` iteration & access
+- feat: Resize `list` when setting an index out of bounds
+- fix: #127 self-reference endless recursion
+- fix: `InlineList` doesn't accept multi-line list definitions
+- fix: `Keyword<P>` doesn't recognize '_'
+- fix: `list_iadd` with void (#146)
+- fix: `loop`-syntax should allow for "loop\n{..."
+- fix: `Op::MakeDict()` creates reversed key order
+- fix: Complex chained comparison compile into broken code
+- fix: Disallow variable shadowing by constants
+- fix: Enforce use of `*`-deref for assignments
+- fix: Generic `Self`/`self` (#142)
+- fix: Improve `float` repr & str representation
+- fix: Improve `inplace/(post|pre)` syntax
+- fix: object `iadd` call with standalone imutable
+- fix+doc: docs for `dict()`, removed `dict_push()`
+- perf: Improving VM `Op::MakeDict` and `Op::MakeList`
+- refactor: `ImlProgram` compilation and finalization (#147)
+- test: Adding test case for dict_clone()
+- test: Split `dict.tok` testcases into separate files
+
+### [v0.6.6] Feature update
+
+- Improved and revised `list` and `dict` syntax
+  - `,` is now some kind of operator, denoting a list
+- Implementation and use of `Keyword<P>`
+- `Empty` and `Void` clarification
+- Improved logging and debug
+- Compiler internals
+  - New `Scope` struct
+  - More refactoring on `ImlValue`
+
+### [v0.6.5] First implementation of generic parselets
+
+- Syntax changes
+- Handle parselet instances
+- Handle generic values in intermediate structures
+- System-defined parselets in prelude
+  - `Repeat<P, min: 1, max: void>`
+    - Implement `Pos<P>`, `Opt<P>`, `Kle<P>`
+    - Compile `P+` into `Pos<P>`, `P?` into `Opt<P>`, `P*` into `Kle<P>`
+  - `List<P, Sep: (',' _), empty: true>`
+  - `Peek<P>`, replaced `peek P` by `Peek<P>`
+  - `Not<P>`, replaced `not P` by `Not<P>`
+  - `Expect<P> msg=void`, replaced `expect P` by `Expect<P>`
+
+### [v0.6.4] Feature update
   - Main parselet operates on multiple inputs (Readers) now
   - Restructuring parts of VM, `Runtime` renamed into `Thread`
   - Several test cases restructured
@@ -33,15 +103,22 @@ Current main branch.
   - `Ord` on Value and RefValue, builtin `list_sort()`
   - Implementing `str_split(s, sep=void, n=void)`
   - Fix `begin` and `end` feature of parselets (#109)
-- v0.6.3: Test release by mistake, see #106 for details.
-- v0.6.2:
-  - Internal revision and clarification on compiler's intermediate structures `ImlOp`, `ImlValue` and `ImlProgram` (part of #105)
-- v0.6.1:
-  - Comparison chains within expressions (#103)
-  - Iterators and `for...in`-syntax (#101)
-  - `Chars<...>` in addition to `Char<...>` syntax
 
-## [v0.6]
+### [v0.6.3] Test release
+
+Test release by mistake, see #106 for details.
+
+### [v0.6.2] Internal revision
+
+Internal revision and clarification on compiler's intermediate structures `ImlOp`, `ImlValue` and `ImlProgram` (part of #105)
+
+### [v0.6.1] Feature update
+
+- Comparison chains within expressions (#103)
+- Iterators and `for...in`-syntax (#101)
+- `Chars<...>` in addition to `Char<...>` syntax
+
+## [v0.6] Milestone
 
 Released on Jan 13, 2023
 
@@ -89,7 +166,7 @@ Released on Jan 13, 2023
   - The self-hosted Tokay parser in `examples/tokay.tok` was now moved into `src/compiler/tokay.tok` and is used to generate `src/compiler/parser.rs` (#93)
   - The JSON parser example in `examples/json.tok` was improved to latest developments
 
-## [v0.5]
+## [v0.5] Milestone
 
 Released on May 17, 2022
 
@@ -129,7 +206,7 @@ Released on May 17, 2022
   - Simple JSON parser in `examples/json.tok`
 
 
-## [v0.4]
+## [v0.4] Milestone
 
 Released on Nov 15, 2021
 
@@ -142,7 +219,7 @@ Released on Nov 15, 2021
 - Improved debug facilities
 
 
-## [v0.3]
+## [v0.3] Milestone
 
 Released on Jul 7, 2021
 
@@ -158,7 +235,7 @@ Released on Jul 7, 2021
 - Command-line parameters
 
 
-## [v0.2]
+## [v0.2] Milestone
 
 Released on Mar 21, 2021
 
@@ -167,7 +244,7 @@ Released on Mar 21, 2021
 - Interactive REPL
 
 
-## [v0.1]
+## [v0.1] Milestone
 
 Released on Mar 4, 2021
 

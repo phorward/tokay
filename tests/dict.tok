@@ -19,6 +19,9 @@ x : 10
 d = (b => 3 c => 1 a => 2)
 d
 
+dict()
+dict(a=1, b=2, c=3)
+
 ## Comparison
 
 a = (a => 1 b => 2)
@@ -75,49 +78,6 @@ d = (name => "John")
 #    d.get_item("name", "Horst")     # "Horst"
 #)
 
-## len
-
-().len()
-d = (a => 1  b => 2)
-
-d.len()
-dict_len("Donkey")  # invalid
-
-list(iter(d))
-list(d.keys)
-list(d.items)
-
-# merge
-
-d = (a => 1 b => 2)
-d.merge((c => 3))
-d
-d.merge(d)
-(a => 23 b => 42) $1.merge($1)
-
-## push
-
-d = dict()
-d.push(1, 2)
-d.push(2, 3)
-d
-
-d = dict()
-d.push(1, 2)
-d.push(2, 3)
-d.push(1, 4)
-
-## pop
-
-d = ("esel" => 1 "bert" => 2 "edgar" => 42 "klaus" => 23)
-d
-d.pop("franz")
-d.pop("franz", "eugen")
-d.pop("bert")
-d
-d.pop()
-d
-
 #---
 #(a => 1 b => 2 c => 3)
 #(a => 1 x => 10)
@@ -133,6 +93,9 @@ d
 
 #(b => 3 c => 1 a => 2)
 
+#()
+#(a => 1 b => 2 c => 3)
+
 #(true, true, true, false, true, true, true, true, true, true)
 
 #"John"
@@ -147,26 +110,3 @@ d
 #("Doe", "Ezel", "Esel", "Horst")
 
 #("Doe", "Ezel", "Esel", "Esel", "Horst")
-
-#0
-#2
-#ERR:Line 1, column 1: dict_len() only accepts 'dict' as parameter, not 'str'
-
-#(1, 2)
-#("a", "b")
-#(("a", 1), ("b", 2))
-
-#(a => 1 b => 2 c => 3)
-#(a => 1 b => 2 c => 3)
-#(a => 1 b => 2 c => 3)
-#((a => 23 b => 42), (a => 23 b => 42))
-
-#(1 => 2 2 => 3)
-#2
-
-#(esel => 1 bert => 2 edgar => 42 klaus => 23)
-#"eugen"
-#2
-#(esel => 1 edgar => 42 klaus => 23)
-#23
-#(esel => 1 edgar => 42)

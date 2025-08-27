@@ -1,0 +1,22 @@
+#testmode:repl
+s = "Hello"
+
+l = s.len
+type(*l)
+repr(*l)
+l
+
+l = *s.len
+type(*l)
+repr(*l).substr(0, 35)
+l
+
+#---
+
+#"int"
+#"5"
+#5
+
+#"method"
+#"<method str_len of str object at 0x"
+#5

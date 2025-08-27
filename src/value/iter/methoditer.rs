@@ -43,7 +43,7 @@ impl RefValueIter for MethodIter {
         if let Some(index) = &self.index {
             match self
                 .object
-                .call_method(self.object_method, context, vec![index.clone()])
+                .call_method(self.object_method, context, vec![index.clone()], None)
             {
                 Ok(Some(next)) => {
                     // When next is not void, calculate index and return next
@@ -98,7 +98,7 @@ impl RefValueIter for MethodIter {
                 } else {
                     match self
                         .object
-                        .call_method("len", None, Vec::new())
+                        .call_method("len", None, Vec::new(), None)
                         .unwrap_or_else(|_| Some(tokay::value!(1)))
                     {
                         Some(len) => {

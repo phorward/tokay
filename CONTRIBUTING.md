@@ -40,10 +40,10 @@ This repository holds all required source files to provide Tokay with examples.
 
 ```
 .                  # Cargo.toml, README.md, LICENSE, etc.
-├── build          # Build scripts to generate parts of Tokay using Tokay itself
 ├── examples       # Example programs
 ├── macros         # Source of the tokay-macros crate required for building
 ├── src            # Tokay's source code
+|   ├── builtin    # Top-level builtins
 │   ├── compiler   # Compiler source
 │   ├── value      # Object system source
 │   └── vm         # Virtual machine source

@@ -6,6 +6,78 @@ use std::io;
 use std::io::prelude::*;
 use std::rc::Rc;
 
+// --- UnaryOp -----------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub(crate) enum UnaryOp {
+    Dec,
+    Inc,
+    Neg,
+    Not,
+}
+
+impl UnaryOp {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::Dec => "idec",
+            Self::Inc => "iinc",
+            Self::Neg => "neg",
+            Self::Not => "not",
+        }
+    }
+}
+
+// --- BinaryOp ----------------------------------------------------------------
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub(crate) enum BinaryOp {
+    Add,
+    Div,
+    Eq,
+    Gt,
+    GtEq,
+    InlineAdd,
+    InlineDiv,
+    InlineIntDiv,
+    InlineMod,
+    InlineMul,
+    InlineSub,
+    IntDiv,
+    Lt,
+    LtEq,
+    Mod,
+    Mul,
+    Neq,
+    Sub,
+}
+
+impl BinaryOp {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Div => "div",
+            Self::Eq => "eq",
+            Self::Gt => "gt",
+            Self::GtEq => "gteq",
+            Self::InlineAdd => "iadd",
+            Self::InlineDiv => "idiv",
+            Self::InlineIntDiv => "idivi",
+            Self::InlineMod => "imod",
+            Self::InlineMul => "imul",
+            Self::InlineSub => "isub",
+            Self::IntDiv => "divi",
+            Self::Lt => "lt",
+            Self::LtEq => "lteq",
+            Self::Mod => "mod",
+            Self::Mul => "mul",
+            Self::Neq => "neq",
+            Self::Sub => "sub",
+        }
+    }
+}
+
 // --- Op ----------------------------------------------------------------------
 
 /**
@@ -14,6 +86,7 @@ Atomic operations.
 Specifies all atomic level VM code operations to run the Tokay VM.
 */
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum Op {
     Nop,
     Offset(Box<Offset>), // Source offset position for debugging
@@ -80,7 +153,7 @@ pub(crate) enum Op {
     LoadFast(usize),             // Load local variable by current context
     LoadFastCapture(usize),      // Load capture by known index
     LoadCapture,                 // Load capture by evaluated index
-    LoadItem,                    // Load item
+    LoadItem { upsert: bool },   // Load item
     LoadAttr,                    // Load attr
     StoreGlobal(usize),          // Store global variable
     StoreGlobalHold(usize),      // Store global variable and keep tos
@@ -105,8 +178,8 @@ pub(crate) enum Op {
     Copy(usize), // copy indexed element as TOS
     Swap(usize), // swap indexed element with TOS
 
-    UnaryOp(&'static str),  // Operation with one operand
-    BinaryOp(&'static str), // Operation with two operands
+    UnaryOp(UnaryOp),   // Operation with one operand
+    BinaryOp(BinaryOp), // Operation with two operands
 }
 
 impl Op {
@@ -511,11 +584,18 @@ impl Op {
                     Ok(Accept::Next)
                 }
 
-                Op::LoadItem => {
+                Op::LoadItem { upsert } => {
                     let item = context.pop();
                     let object = context.pop();
+                    let upsert = if *upsert {
+                        let mut dict = Dict::new();
+                        dict.insert(RefValue::from("upsert"), RefValue::from(true));
+                        Some(dict)
+                    } else {
+                        None
+                    };
 
-                    match object.call_method("get_item", Some(context), vec![item]) {
+                    match object.call_method("get_item", Some(context), vec![item], upsert) {
                         Ok(Some(value)) => context.push(value),
                         Ok(None) => Ok(Accept::Next),
                         Err(msg) => Err(Reject::from(msg)),
@@ -607,7 +687,7 @@ impl Op {
                     let object = context.pop();
                     let value = context.pop();
 
-                    match object.call_method("set_item", Some(context), vec![item, value]) {
+                    match object.call_method("set_item", Some(context), vec![item, value], None) {
                         Ok(value) => {
                             let value = value.unwrap(); // setitem must always return a value!
 
@@ -638,12 +718,13 @@ impl Op {
                 }
 
                 Op::MakeList(count) => {
-                    let mut list = List::new();
+                    let mut list = List::with_capacity(*count);
 
-                    for _ in 0..*count {
-                        let value = context.pop();
+                    for mut value in context.stack.drain(context.stack.len() - *count..) {
+                        let value = value.extract(&mut context.thread.reader);
+
                         if !value.is_void() {
-                            list.insert(0, value);
+                            list.push(value);
                         }
                     }
 
@@ -653,10 +734,16 @@ impl Op {
                 Op::MakeDict(count) => {
                     let mut dict = Dict::new();
 
-                    for _ in 0..*count {
-                        let key = context.pop();
-                        let value = context.pop();
-                        dict.insert(key, value);
+                    {
+                        let start = context.stack.len() - *count * 2;
+                        let mut items = context.stack.drain(start..);
+
+                        while let (Some(mut value), Some(mut key)) = (items.next(), items.next()) {
+                            let key = key.extract(&mut context.thread.reader);
+                            let value = value.extract(&mut context.thread.reader);
+
+                            dict.insert(key, value);
+                        }
                     }
 
                     context.push(RefValue::from(dict))
@@ -716,13 +803,13 @@ impl Op {
 
                 Op::UnaryOp(op) => {
                     let value = context.pop();
-                    context.push(value.unary_op(op)?)
+                    context.push(value.unary_op(op.to_str())?)
                 }
 
                 Op::BinaryOp(op) => {
                     let last = context.pop();
                     let first = context.pop();
-                    context.push(first.binary_op(last, op)?)
+                    context.push(first.binary_op(last, op.to_str())?)
                 }
             };
 

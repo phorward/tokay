@@ -513,7 +513,7 @@ impl<'program, 'reader, 'thread, 'parselet> Context<'program, 'reader, 'thread, 
                 }
                 Ok(accept) => return Ok(accept.into_push(self.parselet.severity)),
                 Err(Reject::Next) if !first && !self.parselet.end.is_empty() => {
-                    break Capture::Empty
+                    break Capture::Empty;
                 }
                 other => return other,
             }
